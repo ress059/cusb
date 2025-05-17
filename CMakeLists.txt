@@ -4,11 +4,12 @@
 cmake_minimum_required(VERSION 3.21)
 project(CUSB_LIBRARY VERSION 0.1)
 set(CUSB_SUPPORTED_COMPILERS "GNU")
-option(CUSB_DISABLE_RUNTIME_ASSERTS "ON = runtime asserts disabled. OFF = runtime asserts enabled." OFF)
-
 if(NOT CMAKE_C_COMPILER_ID IN_LIST CUSB_SUPPORTED_COMPILERS)
     message(WARNING "Using untested compiler. Currently supported compilers = ${CUSB_SUPPORTED_COMPILERS}")
 endif()
+
+# User can use ECU_DISABLE_RUNTIME_ASSERTS to disable runtime asserts in this 
+# codebase since it uses ECU. cmake -DECU_DISABLE_RUNTIME_ASSERTS=OFF --preset ....
 
 #------------------------------------------------------------#
 #---------------------- GET DEPENDENCIES --------------------#
@@ -62,13 +63,6 @@ target_compile_options(cusb_warning_options
         # Compiler flags specific to Debug builds
         $<$<AND:$<CONFIG:Debug>,$<OR:$<COMPILE_LANG_AND_ID:C,GNU>,$<COMPILE_LANG_AND_ID:CXX,GNU>>>:-g3>
 )
-
-# CUSB_DISABLE_RUNTIME_ASSERTS is a wrapper around ECU_DISABLE_RUNTIME_ASSERTS.
-# Set ECU_DISABLE_RUNTIME_ASSERTS to whatever CUSB_DISABLE_RUNTIME_ASSERTS 
-# is. ECU library will show warning if runtime asserts are disabled. It is
-# not recommended to disable run-time asserts but we have this
-# as an option to decrease overhead of the library.
-set(ECU_DISABLE_RUNTIME_ASSERTS ${CUSB_DISABLE_RUNTIME_ASSERTS} CACHE BOOL "ON = runtime asserts disabled. OFF = runtime asserts enabled." FORCE)
 
 # Note how CUSB-specific warning flags are private so it is not propogated
 # to the user's application. However our internal tests can still use 
