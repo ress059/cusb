@@ -28,7 +28,10 @@ FetchContent_MakeAvailable(ecu)
 # Note this library is meant to be compiled with the target 
 # application's toolchain.
 add_library(cusb STATIC
-    ${CMAKE_CURRENT_LIST_DIR}/src/dummy.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/configuration.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/device.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/endpoint.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/interface.c
 )
 
 # Example include in the Application would be #include "cusb/device.h" 
