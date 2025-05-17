@@ -1,0 +1,95 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 21,
+		"patch": 0
+	},
+    "configurePresets": [
+		{
+			"name": "build-test",
+            "displayName": "build-test",
+            "description": "Build CUSB executable to test compilation. Toolchain = GNU. Host = Linux x86_64. Target = Linux x86_64.",
+            "binaryDir": "bin/tests/build",
+            "toolchainFile": "toolchains/gnu/linux/linux-gnu-x86_64.cmake",
+			"cacheVariables": 
+			{
+				"CUSB_ENABLE_BUILD_TESTING": true,
+				"CMAKE_EXPORT_COMPILE_COMMANDS": true,
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "unit-test",
+            "displayName": "unit-test",
+            "description": "Build unit tests. Toolchain = GNU. Host = Linux x86_64. Target = Linux x86_64.",
+            "binaryDir": "bin/tests/unit",
+            "toolchainFile": "toolchains/gnu/linux/linux-gnu-x86_64.cmake",
+			"cacheVariables": 
+			{
+				"CUSB_ENABLE_UNIT_TESTING": true,
+				"CMAKE_EXPORT_COMPILE_COMMANDS": true,
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+        {
+            "name": "integration-test",
+            "hidden": true,
+            "cacheVariables":
+            {
+                "CUSB_ENABLE_INTEGRATION_TESTING": true,
+				"CMAKE_EXPORT_COMPILE_COMMANDS": true,
+				"CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+		{
+			"name": "stm32l432xc-integration-test",
+			"inherits": "integration-test",
+			"displayName": "stm32l432xc-integration-test",
+			"description": "Cross compile CUSB and run it on MCU. Toolchain = arm-none-eabi. Host = Linux x86_64. Target = stm32l432xc.",
+			"binaryDir": "bin/tests/integration/stm32l432xc",
+			"toolchainFile": "toolchains/gnu/arm_cm4/generic-gnu-cortex-m4f.cmake",
+            "cacheVariables":
+            {
+                "MCU": "stm32l432xc"
+            }
+		}
+    ],
+	"buildPresets": [
+        {
+			"name": "build-test",
+			"displayName": "build-test",
+			"configurePreset": "build-test",
+			"verbose": true
+		},
+        {
+			"name": "unit-test",
+			"displayName": "unit-test",
+			"configurePreset": "unit-test"
+		},
+        {
+			"name": "stm32l432xc-integration-test",
+			"displayName": "stm32l432xc-integration-test",
+			"configurePreset": "stm32l432xc-integration-test",
+			"verbose": true
+		}
+	],
+    "testPresets": [
+        {
+            "name": "unit-test",
+            "displayName": "unit-test",
+            "description": "Run unit tests. Toolchain = GNU. Host = Linux x86_64. Target = Linux x86_64.",
+            "configurePreset": "unit-test",
+            "configuration": "Debug",
+            "output": 
+            {
+                "outputOnFailure": true
+            },
+            "execution": 
+            {
+                "noTestsAction": "error", 
+                "stopOnFailure": true
+            }
+        }
+    ]
+}
