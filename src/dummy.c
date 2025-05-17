@@ -1,0 +1,1 @@
+static int var __attribute__((unused)) = 2 ;

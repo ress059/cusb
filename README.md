@@ -1,2 +1,2 @@
 # cusb
-USB device middleware for C applications
+USB device middleware for C applications.
