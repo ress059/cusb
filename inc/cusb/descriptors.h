@@ -18,8 +18,9 @@ enum cusb_descriptor_type // set node id to this type so you know type when iter
     CUSB_STRING_DESCRIPTOR_TYPE = 0x03,
     CUSB_INTERFACE_DESCRIPTOR_TYPE = 0x04,
     CUSB_ENDPOINT_DESCRIPTOR_TYPE = 0x05,
-    /****************************************/
-    CUSB_DESCRIPTOR_TYPE_COUNT
+    CUSB_DEVICE_QUALIFIER_DESCRIPTOR_TYPE = 0x06,
+    CUSB_OTHER_SPEED_CONFIGURATION_DESRIPTOR_TYPE = 0x07,
+    CUSB_INTERFACE_POWER_DESCRIPTOR_TYPE = 0x08
 };
 
 #endif /* CUSB_DESCRIPTORS_H_ */

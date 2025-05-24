@@ -16,7 +16,6 @@
 #include "cusb/configuration.h"
 
 /* STDLib. */
-#include <stddef.h>
 #include <string.h> /* memcpy. */
 
 /* ECU. */
@@ -29,18 +28,38 @@
 ECU_ASSERT_DEFINE_NAME("cusb/configuration.c")
 
 /*------------------------------------------------------------*/
-/*--------------------------- DEFINES ------------------------*/
+/*---------------- STATIC FUNCTION DECLARATIONS --------------*/
 /*------------------------------------------------------------*/
 
-// #define BMATTRIBUTES_
+/**
+ * @brief Returns true if supplied descriptor was properly
+ * constructed via @ref CUSB_CONFIGURATION_DESCRIPTOR_CTOR().
+ * False otherwise.
+ * 
+ * @param descriptor Descriptor to check.
+ */
+static bool configuration_descriptor_valid(const struct cusb_configuration_descriptor *descriptor);
 
 /*------------------------------------------------------------*/
-/*------------------- FILE SCOPE VARIABLES -------------------*/
+/*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
 /*------------------------------------------------------------*/
 
-static const struct cusb_interface_descriptor DEFAULT_INTERFACE_DESCRIPTOR = CUSB_INTERFACE_DESCRIPTOR_CTOR(
-        0x00, 0x00, 0x00, 0x00
-    );
+static bool configuration_descriptor_valid(const struct cusb_configuration_descriptor *descriptor)
+{
+    bool status = false;
+    ECU_RUNTIME_ASSERT( (descriptor) );
+
+#pragma message("TODO: Figure out bmAttributes, and bMaxPower.")
+    /* Do not assert wTotalLength, bNumInterfaces, bConfigurationValue, and iConfiguration 
+    since these are automatically updated when descriptors are added to the device. */
+    if (descriptor->bLength == sizeof(struct cusb_configuration_descriptor) &&
+        descriptor->bDescriptorType == (uint8_t)CUSB_CONFIGURATION_DESCRIPTOR_TYPE)
+    {
+        status = true;
+    }
+
+    return status;
+}
 
 /*------------------------------------------------------------*/
 /*---------------------- STATIC ASSERTS ----------------------*/
@@ -56,22 +75,47 @@ ECU_STATIC_ASSERT( (sizeof(struct cusb_configuration_descriptor) == (size_t)9),
 void cusb_configuration_ctor(struct cusb_configuration *me,
                              const struct cusb_configuration_descriptor *descriptor)
 {
-    static const uint16_t DEFAULT_WTOTALLENGTH = ECU_CPU_TO_LE16_COMPILETIME(sizeof(struct cusb_configuration_descriptor));
     ECU_RUNTIME_ASSERT( (me && descriptor) );
-    ECU_RUNTIME_ASSERT( (descriptor->bLength == sizeof(struct cusb_configuration_descriptor)) );
-    ECU_RUNTIME_ASSERT( (descriptor->bDescriptorType == (uint8_t)CUSB_CONFIGURATION_DESCRIPTOR_TYPE) );
-    ECU_RUNTIME_ASSERT( (descriptor->wTotalLength == DEFAULT_WTOTALLENGTH) );
-    ECU_RUNTIME_ASSERT( (descriptor->bNumInterfaces == (uint8_t)1) );
-    ECU_RUNTIME_ASSERT( (descriptor->bConfigurationValue == (uint8_t)0) );
-#pragma message("TODO: Figure out iConfiguration, bmAttributes, and bMaxPower.")
+    ECU_RUNTIME_ASSERT( (configuration_descriptor_valid(&me->descriptor)) );
 
     ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSB_CONFIGURATION_DESCRIPTOR_TYPE);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusb_configuration_descriptor));
     ecu_dlist_ctor(&me->interfaces);
-    cusb_interface_ctor(&me->interface0, &DEFAULT_INTERFACE_DESCRIPTOR);
+    ecu_dlist_ctor(&me->strings);
+}
 
-    // todo: cusb_configuration_add_interface??
-    ecu_dlist_push_back(&me->interfaces, &me->interface0.dnode);
+void cusb_configuration_add_interface(struct cusb_configuration *me,
+                                      struct cusb_interface *interface)
+{
+    /* ECU library asserts if node is already within a list. Descriptor
+    valid not asserted since that is done when cusb device starts. It
+    loops over everything in the tree and asserts they are valid. */
+    ECU_RUNTIME_ASSERT( (me && interface) );
+    ecu_dlist_push_back(&me->interfaces, &interface->dnode);
+}
+
+void cusb_configuration_add_string(struct cusb_configuration *me,
+                                   struct cusb_string *string)
+{
+    /* ECU library asserts if node is already within a list. String
+    valid not asserted since that is done when cusb device starts. It
+    loops over everything in the tree and asserts they are valid. */
+    ECU_RUNTIME_ASSERT( (me && string) );
+    ecu_dlist_push_back(&me->strings, &string->dnode);
+}
+
+bool cusb_configuration_valid(const struct cusb_configuration *me)
+{
+    /* This is a wrapper function in case logic specific to the 
+    cusb_configuration object has to be added in the future. */
+    ECU_RUNTIME_ASSERT( (me) );
+    return configuration_descriptor_valid(&me->descriptor);
+}
+
+size_t cusb_configuration_interface_count(const struct cusb_configuration *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    return ecu_dlist_size(&me->interfaces);
 }
 
 size_t cusb_configuration_size(const struct cusb_configuration *me)

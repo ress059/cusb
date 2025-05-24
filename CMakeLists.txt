@@ -29,9 +29,10 @@ FetchContent_MakeAvailable(ecu)
 # application's toolchain.
 add_library(cusb STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/configuration.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/device.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd.c
     ${CMAKE_CURRENT_LIST_DIR}/src/endpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/src/interface.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/string.c
 )
 
 # Example include in the Application would be #include "cusb/device.h" 
@@ -41,10 +42,10 @@ target_include_directories(cusb
         ${CMAKE_CURRENT_LIST_DIR}/inc 
 )
 
-# CUSB library requires at least C99.
+# CUSB library requires at least C11.
 target_compile_features(cusb 
     PUBLIC 
-        c_std_99    
+        c_std_11    
 )
 
 # Store CUSB-specific warning flags in an interface target in case it is
