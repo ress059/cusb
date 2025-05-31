@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     ecu
     GIT_REPOSITORY https://github.com/ress059/ecu.git
-    GIT_TAG        3d7461497cc1bdbf9a16e3241aa336574c8ce3b1 # Latest master. TODO: Update to latest once ecu released.
+    GIT_TAG        25ae0d074a53ff525a59e29e2c97e88870e7aad5 # Latest master. TODO: Update to latest once ecu released.
 )
 FetchContent_MakeAvailable(ecu)
 
@@ -30,12 +30,13 @@ FetchContent_MakeAvailable(ecu)
 add_library(cusb STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/configuration.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/descriptor.c
     ${CMAKE_CURRENT_LIST_DIR}/src/endpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/src/interface.c
     ${CMAKE_CURRENT_LIST_DIR}/src/string.c
 )
 
-# Example include in the Application would be #include "cusb/device.h" 
+# Example include in the Application would be #include "cusbd/device.h" 
 # in order to give larger apps some scope when including files.
 target_include_directories(cusb
     PUBLIC 

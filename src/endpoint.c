@@ -13,7 +13,7 @@
 /*------------------------------------------------------------*/
 
 /* Translation unit. */
-#include "cusb/endpoint.h"
+#include "cusbd/endpoint.h"
 
 /* STDLib. */
 #include <stddef.h>
@@ -26,7 +26,7 @@
 /*--------------- DEFINE FILE NAME FOR ASSERTER --------------*/
 /*------------------------------------------------------------*/
 
-ECU_ASSERT_DEFINE_NAME("cusb/endpoint.c")
+ECU_ASSERT_DEFINE_NAME("cusbd/endpoint.c")
 
 /*------------------------------------------------------------*/
 /*--------------------- DEFINES - BITMASKS -------------------*/
@@ -72,26 +72,26 @@ ECU_ASSERT_DEFINE_NAME("cusb/endpoint.c")
 
 /**
  * @brief Returns true if supplied descriptor was properly
- * constructed via @ref CUSB_ENDPOINT_DESCRIPTOR_CTOR().
+ * constructed via @ref CUSBD_ENDPOINT_DESCRIPTOR_CTOR().
  * False otherwise.
  * 
  * @param descriptor Descriptor to check.
  */
-static bool endpoint_descriptor_valid(const struct cusb_endpoint_descriptor *descriptor);
+static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *descriptor);
 
 /*------------------------------------------------------------*/
 /*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
 /*------------------------------------------------------------*/
 
-static bool endpoint_descriptor_valid(const struct cusb_endpoint_descriptor *descriptor)
+static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *descriptor)
 {
     bool status = false;
     ECU_RUNTIME_ASSERT( (descriptor) );
     uint8_t bEndpointAddress = descriptor->bEndpointAddress;
 
 #pragma message("TODO: Figure out wMaxPacketSize and bInterval")
-    if ((descriptor->bLength == sizeof(struct cusb_endpoint_descriptor)) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSB_ENDPOINT_DESCRIPTOR_TYPE) &&
+    if ((descriptor->bLength == sizeof(struct cusbd_endpoint_descriptor)) &&
+        (descriptor->bDescriptorType == (uint8_t)CUSBD_ENDPOINT_DESCRIPTOR_TYPE) &&
         ((descriptor->bEndpointAddress & BENDPOINTADDRESS_NUMBER_BITMASK) > 0U) &&
         ((descriptor->bEndpointAddress & BENDPOINTADDRESS_RESERVED_BITMASK) == 0U))
     {
@@ -133,36 +133,36 @@ static bool endpoint_descriptor_valid(const struct cusb_endpoint_descriptor *des
 /*---------------------- STATIC ASSERTS ----------------------*/
 /*------------------------------------------------------------*/
 
-ECU_STATIC_ASSERT( ((endpoint_id_t)-1 < (endpoint_id_t)0), 
-                    "endpoint_id_t must be a signed type." );
+ECU_STATIC_ASSERT( ((cusbd_endpoint_id_t)-1 < (cusbd_endpoint_id_t)0), 
+                    "cusbd_endpoint_id_t must be a signed type." );
 
-ECU_STATIC_ASSERT( (CUSB_ENDPOINT_USER_ID_BEGIN == 0), 
-                    "CUSB_ENDPOINT_USER_ID_BEGIN must always equal 0 for future compatibility." );
+ECU_STATIC_ASSERT( (CUSBD_ENDPOINT_USER_ID_BEGIN == 0), 
+                    "CUSBD_ENDPOINT_USER_ID_BEGIN must always equal 0 for future compatibility." );
 
-ECU_STATIC_ASSERT( (sizeof(struct cusb_endpoint_descriptor) == (size_t)7),
+ECU_STATIC_ASSERT( (sizeof(struct cusbd_endpoint_descriptor) == (size_t)7),
                     "Endpoint descriptor is 7 bytes." );
 
 /*------------------------------------------------------------*/
-/*----------------- CUSB ENDPOINT MEMBER FUNCTIONS -----------*/
+/*---------------- CUSBD ENDPOINT MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
 
-void cusb_endpoint_ctor(struct cusb_endpoint *me,
-                        const struct cusb_endpoint_descriptor *descriptor,
-                        endpoint_id_t id)
+void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
+                         const struct cusbd_endpoint_descriptor *descriptor,
+                         cusbd_endpoint_id_t id)
 {
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (endpoint_descriptor_valid(descriptor)) );
-    ECU_RUNTIME_ASSERT( (id >= CUSB_ENDPOINT_USER_ID_BEGIN) );
+    ECU_RUNTIME_ASSERT( (id >= CUSBD_ENDPOINT_USER_ID_BEGIN) );
 
-    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSB_ENDPOINT_DESCRIPTOR_TYPE);
-    memcpy(&me->descriptor, descriptor, sizeof(struct cusb_endpoint_descriptor));
+    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_ENDPOINT_DESCRIPTOR_TYPE);
+    memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_endpoint_descriptor));
     me->id = id;
 }
 
-bool cusb_endpoint_valid(const struct cusb_endpoint *me)
+bool cusbd_endpoint_valid(const struct cusbd_endpoint *me)
 {
     /* This is a wrapper function in case logic specific to the 
-    cusb_endpoint object has to be added in the future. */
+    cusbd_endpoint object has to be added in the future. */
     ECU_RUNTIME_ASSERT( (me) );
     return endpoint_descriptor_valid(&me->descriptor);
 }

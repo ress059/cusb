@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2025
  */
 
-#ifndef CUSB_INTERFACE_H_
-#define CUSB_INTERFACE_H_
+#ifndef CUSBD_INTERFACE_H_
+#define CUSBD_INTERFACE_H_
 
 /*------------------------------------------------------------*/
 /*------------------------- INCLUDES -------------------------*/
@@ -19,24 +19,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusb/descriptors.h"
-#include "cusb/endpoint.h"
-#include "cusb/string.h"
+/* CUSBD. */
+#include "cusbd/descriptor.h"
+#include "cusbd/endpoint.h"
+#include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
-#include "ecu/dlist.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
 /*------------------------------------------------------------*/
 
 /**
- * @brief Creates a @ref cusb_interface_descriptor at
+ * @brief Creates a @ref cusbd_interface_descriptor at
  * either compile-time or run-time. Example usage:
  * @code{.c}
- * static const struct cusb_interface_descriptor interface = CUSB_INTERFACE_DESCRIPTOR_CTOR(
+ * static const struct cusbd_interface_descriptor interface = CUSBD_INTERFACE_DESCRIPTOR_CTOR(
  *      0, 0, 0
  * );
  * @endcode
@@ -45,12 +44,12 @@
  * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
  * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
  */
-#define CUSB_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,        \
-                                       bInterfaceSubClass_,     \
-                                       bInterfaceProtocol_)     \
+#define CUSBD_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,       \
+                                        bInterfaceSubClass_,    \
+                                        bInterfaceProtocol_)    \
     {                                                           \
-        .bLength = sizeof(struct cusb_interface_descriptor),    \
-        .bDescriptorType = CUSB_INTERFACE_DESCRIPTOR_TYPE,      \
+        .bLength = sizeof(struct cusbd_interface_descriptor),   \
+        .bDescriptorType = CUSBD_INTERFACE_DESCRIPTOR_TYPE,     \
         .bInterfaceNumber = 0,                                  \
         .bAlternateSetting = 0,                                 \
         .bNumEndpoints = 0,                                     \
@@ -61,7 +60,7 @@
     }
 
 /*------------------------------------------------------------*/
-/*------------------------ CUSB INTERFACE --------------------*/
+/*----------------------- CUSBD INTERFACE --------------------*/
 /*------------------------------------------------------------*/
 
 /**
@@ -74,7 +73,7 @@
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_interface_descriptor
+struct cusbd_interface_descriptor
 {
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
@@ -120,25 +119,18 @@ struct cusb_interface_descriptor
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_interface
+struct cusbd_interface
 {
-    /// @brief Node in linked list.
-    struct ecu_dnode dnode;
+    /// @brief Inherit cusbd_descriptor base class.
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust bNumEndpoints, iInterface, etc as
     /// the device's descriptor tree is updated.
     /// @warning This struct is packed and will always be in 
     /// little endian.
-    struct cusb_interface_descriptor descriptor;
-
-    /// @brief Alternate interfaces attached to this interface
-    /// descriptor. Empty if this has no alternate interfaces.
-    struct ecu_dlist alternate_interfaces;
-    
-    /// @brief Endpoints attached to this interface descriptor. 
-    /// Empty if only endpoint0 is used.
-    struct ecu_dlist endpoints;
+    struct cusbd_interface_descriptor descriptor;
 
     /// @brief String descriptors attached to this interface descriptor. 
     /// Optional. Empty if unused.
@@ -157,21 +149,18 @@ struct cusb_interface
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_alternate_interface
+struct cusbd_alternate_interface
 {
-    /// @brief Node in linked list.
-    struct ecu_dnode dnode;
+    /// @brief Inherit cusbd_descriptor base class.
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust bNumEndpoints, iInterface, etc as
     /// the device's descriptor tree is updated.
     /// @warning This struct is packed and will always be in 
     /// little endian.
-    struct cusb_interface_descriptor descriptor;
-
-    /// @brief Endpoints attached to this alternate interface
-    /// descriptor. Empty if only endpoint0 is used.
-    struct ecu_dlist endpoints;
+    struct cusbd_interface_descriptor descriptor;
 
     /// @brief String descriptors attached to this alternate interface 
     /// descriptor. Optional. Empty if unused.
@@ -181,7 +170,7 @@ struct cusb_alternate_interface
 };
 
 /*------------------------------------------------------------*/
-/*--------------- CUSB INTERFACE MEMBER FUNCTIONS ------------*/
+/*--------------- CUSBD INTERFACE MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
 
 #ifdef __cplusplus
@@ -189,12 +178,12 @@ extern "C" {
 #endif
 
 /**
- * @name CUSB Interface Constructors
+ * @name CUSBD Interface Constructors
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSB_INTERFACE_DESCRIPTOR_CTOR().
+ * @pre @p descriptor previously constructed via @ref CUSBD_INTERFACE_DESCRIPTOR_CTOR().
  * @brief Interface descriptor constructor.
  * 
  * @warning This cannot be called on an active interface 
@@ -203,17 +192,17 @@ extern "C" {
  * @param me Interface descriptor to construct.
  * @param descriptor The interface descriptor's data.
  */
-extern void cusb_interface_ctor(struct cusb_interface *me,
-                                const struct cusb_interface_descriptor *descriptor);
+extern void cusbd_interface_ctor(struct cusbd_interface *me,
+                                 const struct cusbd_interface_descriptor *descriptor);
 /**@}*/
 
 /**
- * @name CUSB Interface Member Functions
+ * @name CUSBD Interface Member Functions
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusb_interface_ctor().
- * @pre @p alternate_interface previously constructed via @ref cusb_alternate_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_interface_ctor().
+ * @pre @p alternate_interface previously constructed via @ref cusbd_alternate_interface_ctor().
  * @brief Adds an alternate interface descriptor to the supplied interface 
  * descriptor.
  * 
@@ -224,12 +213,12 @@ extern void cusb_interface_ctor(struct cusb_interface *me,
  * @param alternate_interface Alternate interface descriptor to add. 
  * This cannot already be within another interface descriptor.
  */
-extern void cusb_interface_add_alternate_interface(struct cusb_interface *me,
-                                                   struct cusb_alternate_interface *alternate_interface);
+extern void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
+                                                    struct cusbd_alternate_interface *alternate_interface);
 
 /**
- * @pre @p me previously constructed via @ref cusb_interface_ctor().
- * @pre @p endpoint previously constructed via @ref cusb_endpoint_ctor().
+ * @pre @p me previously constructed via @ref cusbd_interface_ctor().
+ * @pre @p endpoint previously constructed via @ref cusbd_endpoint_ctor().
  * @brief Adds an endpoint descriptor to the supplied interface descriptor.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
@@ -238,16 +227,16 @@ extern void cusb_interface_add_alternate_interface(struct cusb_interface *me,
  * @param me Interface descriptor to add to.
  * @param endpoint Endpoint descriptor to add. This cannot already be
  * within another interface or alternate interface descriptor.
- * @p endpoint's address (@ref cusb_endpoint_descriptor.bEndpointAddress)
+ * @p endpoint's address (@ref cusbd_endpoint_descriptor.bEndpointAddress)
  * cannot be the same as any endpoint descriptors currently in @p me.
  * I.e. an interface cannot have multiple endpoint1 INs.
  */
-extern void cusb_interface_add_endpoint(struct cusb_interface *me,
-                                        struct cusb_endpoint *endpoint);
+extern void cusbd_interface_add_endpoint(struct cusbd_interface *me,
+                                         struct cusbd_endpoint *endpoint);
 
 /**
- * @pre @p me previously constructed via @ref cusb_interface_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p me previously constructed via @ref cusbd_interface_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a string descriptor to the supplied interface
  * descriptor.
  * 
@@ -261,26 +250,26 @@ extern void cusb_interface_add_endpoint(struct cusb_interface *me,
  * @param string String descriptor to add. This cannot already be within
  * another descriptor.
  */
-extern void cusb_interface_add_string(struct cusb_interface *me,
-                                      struct cusb_string *string);
+extern void cusbd_interface_add_string(struct cusbd_interface *me,
+                                       struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusb_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_interface_ctor().
  * @brief Returns true if the supplied interface descriptor contains
- * valid data and was properly constructed via @ref cusb_interface_ctor(). 
+ * valid data and was properly constructed via @ref cusbd_interface_ctor(). 
  * False otherwise.
  * 
  * @param me Interface descriptor to check.
  */
-extern bool cusb_interface_valid(const struct cusb_interface *me);
+extern bool cusbd_interface_valid(const struct cusbd_interface *me);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns number of bytes in the entire interface 
  * descriptor's subtree. I.e. sizeof(interface descriptor) + 
  * sizeof(all endpoint descriptors) + sizeof(all alternate interface descriptors) + ...
  * The size of the descriptor's data is used, NOT the size of the 
- * CUSB objects. The return value of this function is meant to be 
+ * CUSBD objects. The return value of this function is meant to be 
  * used to update wTotalLength in the configuration descriptor.
  * 
  * @warning This value is returned in native endianness, not
@@ -288,20 +277,20 @@ extern bool cusb_interface_valid(const struct cusb_interface *me);
  * 
  * @param me Configuration descriptor to check.
  */
-extern size_t cusb_interface_size(const struct cusb_interface *me);
+extern size_t cusbd_interface_size(const struct cusbd_interface *me);
 /**@}*/
 
 /*------------------------------------------------------------*/
-/*--------- CUSB ALTERNATE INTERFACE MEMBER FUNCTIONS --------*/
+/*--------- CUSBD ALTERNATE INTERFACE MEMBER FUNCTIONS -------*/
 /*------------------------------------------------------------*/
 
 /**
- * @name CUSB Alternate Interface Constructors
+ * @name CUSBD Alternate Interface Constructors
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSB_INTERFACE_DESCRIPTOR_CTOR().
+ * @pre @p descriptor previously constructed via @ref CUSBD_INTERFACE_DESCRIPTOR_CTOR().
  * @brief Alternate interface descriptor constructor.
  * 
  * @warning This cannot be called on an active alternate interface 
@@ -310,17 +299,17 @@ extern size_t cusb_interface_size(const struct cusb_interface *me);
  * @param me Alternate interface descriptor to construct.
  * @param descriptor The alternate interface descriptor's data.
  */
-extern void cusb_alternate_interface_ctor(struct cusb_alternate_interface *me,
-                                          const struct cusb_interface_descriptor *descriptor);
+extern void cusbd_alternate_interface_ctor(struct cusbd_alternate_interface *me,
+                                           const struct cusbd_interface_descriptor *descriptor);
 /**@}*/
 
 /**
- * @name CUSB Alternate Interface Member Functions
+ * @name CUSBD Alternate Interface Member Functions
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusb_alternate_interface_ctor().
- * @pre @p endpoint previously constructed via @ref cusb_endpoint_ctor().
+ * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
+ * @pre @p endpoint previously constructed via @ref cusbd_endpoint_ctor().
  * @brief Adds an endpoint descriptor to the supplied alternate 
  * interface descriptor.
  * 
@@ -330,16 +319,16 @@ extern void cusb_alternate_interface_ctor(struct cusb_alternate_interface *me,
  * @param me Alternate interface descriptor to add to.
  * @param endpoint Endpoint descriptor to add. This cannot already be
  * within another interface or alternate interface descriptor.
- * @p endpoint's address (@ref cusb_endpoint_descriptor.bEndpointAddress)
+ * @p endpoint's address (@ref cusbd_endpoint_descriptor.bEndpointAddress)
  * cannot be the same as any endpoint descriptors currently in @p me.
  * I.e. an interface cannot have multiple endpoint1 INs.
  */
-extern void cusb_alternate_interface_add_endpoint(struct cusb_alternate_interface *me,
-                                                  struct cusb_endpoint *endpoint);
+extern void cusbd_alternate_interface_add_endpoint(struct cusbd_alternate_interface *me,
+                                                   struct cusbd_endpoint *endpoint);
 
 /**
- * @pre @p me previously constructed via @ref cusb_alternate_interface_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a string descriptor to the supplied alternate
  * interface descriptor.
  * 
@@ -353,24 +342,24 @@ extern void cusb_alternate_interface_add_endpoint(struct cusb_alternate_interfac
  * @param string String descriptor to add. This cannot already be within
  * another descriptor.
  */
-extern void cusb_alternate_interface_add_string(struct cusb_alternate_interface *me,
-                                                struct cusb_string *string);
+extern void cusbd_alternate_interface_add_string(struct cusbd_alternate_interface *me,
+                                                 struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusb_alternate_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
  * @brief Returns true if the supplied alternate interface descriptor contains
- * valid data and was properly constructed via @ref cusb_alternate_interface_ctor(). 
+ * valid data and was properly constructed via @ref cusbd_alternate_interface_ctor(). 
  * False otherwise.
  * 
  * @param me Alternate interface descriptor to check.
  */
-extern bool cusb_alternate_interface_valid(const struct cusb_alternate_interface *me);
+extern bool cusbd_alternate_interface_valid(const struct cusbd_alternate_interface *me);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns number of bytes of the supplied alternate interface
  * descriptor and all of its endpoints. The size of the descriptor's
- * data is used, NOT the size of the CUSB objects. The return value 
+ * data is used, NOT the size of the CUSBD objects. The return value 
  * of this function is meant to be used to update wTotalLength in 
  * the configuration descriptor.
  * 
@@ -379,11 +368,11 @@ extern bool cusb_alternate_interface_valid(const struct cusb_alternate_interface
  * 
  * @param me Alternate interface descriptor to check.
  */
-extern size_t cusb_alternate_interface_size(const struct cusb_alternate_interface *me);
+extern size_t cusbd_alternate_interface_size(const struct cusbd_alternate_interface *me);
 /**@}*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CUSB_INTERFACE_H_ */
+#endif /* CUSBD_INTERFACE_H_ */

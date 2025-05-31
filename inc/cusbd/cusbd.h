@@ -19,10 +19,11 @@
 /* STDLib. */
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusb/configuration.h"
-#include "cusb/descriptors.h"
-#include "cusb/string.h"
+/* CUSBD. */
+#include "cusbd/configuration.h"
+#include "cusbd/descriptor.h"
+#include "cusbd/endpoint.h"
+#include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
@@ -38,11 +39,11 @@
  * @brief Helper macro passed to @ref cusbd_ctor() if
  * device uses no string descriptors. If this is the case
  * then no cusbd_add_string() functions can be used and on
- * the device and no cusb_add_string() functions can be used 
+ * the device and no cusbd_add_string() functions can be used 
  * on any of the device's descriptors.
  */
 #define CUSBD_STRING_ZERO_UNUSED \
-    ((const struct cusb_string_zero *)0)
+    ((const struct cusbd_string_zero *)0)
 
 /**
  * @brief Helper macro passed to @ref cusbd_ctor() if
@@ -53,12 +54,12 @@
     ((void *)0)
     
 /**
- * @brief Creates a @ref cusb_device_descriptor at either
+ * @brief Creates a @ref cusbd_device_descriptor at either
  * compile-time or run-time. Example usage below creates
  * a USB 2.0 device with maximum endpoint0 packet size of 
  * 8 bytes, that is revision v00.0.1:
  * @code{.c}
- * static const struct cusb_device_descriptor device = CUSB_DEVICE_DESRIPTOR_CTOR(
+ * static const struct cusbd_device_descriptor device = CUSBD_DEVICE_DESRIPTOR_CTOR(
  *      0x0200, 0, 0, 8, 0, 0, 0x0001
  * )
  * @endcode
@@ -81,17 +82,17 @@
  * @param idProduct_ Device's product ID. Manufacturer-specific.
  * @param bcdDevice_ Device's version in BCD format. Manufacturer-specific.
  */
-#define CUSB_DEVICE_DESCRIPTOR_CTOR(bcdUSB_,                    \
-                                    bDeviceClass_,              \
-                                    bDeviceSubClass_,           \
-                                    bDeviceProtocol_,           \
-                                    bMaxPacketSize0_,           \
-                                    idVendor_,                  \
-                                    idProduct_,                 \
-                                    bcdDevice_)                 \
+#define CUSBD_DEVICE_DESCRIPTOR_CTOR(bcdUSB_,                   \
+                                     bDeviceClass_,             \
+                                     bDeviceSubClass_,          \
+                                     bDeviceProtocol_,          \
+                                     bMaxPacketSize0_,          \
+                                     idVendor_,                 \
+                                     idProduct_,                \
+                                     bcdDevice_)                \
     {                                                           \
-        .bLength = sizeof(struct cusb_device_descriptor),       \
-        .bDescriptorType = CUSB_DEVICE_DESCRIPTOR_TYPE,         \
+        .bLength = sizeof(struct cusbd_device_descriptor),      \
+        .bDescriptorType = CUSBD_DEVICE_DESCRIPTOR_TYPE,        \
         .bcdUSB = ECU_CPU_TO_LE16_COMPILETIME(bcdUSB_),         \
         .bDeviceClass = (bDeviceClass_),                        \
         .bDeviceSubClass = (bDeviceSubClass_),                  \
@@ -107,8 +108,21 @@
     }
 
 /*------------------------------------------------------------*/
-/*------------------------- CUSB DEVICE ----------------------*/
+/*------------------------ CUSBD DEVICE ----------------------*/
 /*------------------------------------------------------------*/
+
+/**
+ * @brief String index. I.e. iManufacturer, iProduct, iSerialNumber,
+ * iConfiguration, iInterface, etc.
+ */
+enum cusbd_string_id
+{
+    CUSBD_MANUFACTURER_STRING_ID = 1,   /**<! ID given to all manufacturer strings. */
+    CUSBD_PRODUCT_STRING_ID,            /**<! ID given to all product strings. */
+    CUSBD_SERIAL_NUMBER_STRING_ID,      /**<! ID given to all serial number strings. */
+    /*********************************/
+    CUSBD_USER_STRING_ID_BEGIN          /**<! Strings attached to descriptors start at this ID. */
+};
 
 /**
  * @brief Data in a standard device descriptor. Using
@@ -118,7 +132,7 @@
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_device_descriptor
+struct cusbd_device_descriptor
 {
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
@@ -170,19 +184,6 @@ struct cusb_device_descriptor
     uint8_t bNumConfigurations;
 } ECU_ATTRIBUTE_PACKED;
 
-/**
- * @brief String index. I.e. iManufacturer, iProduct, iSerialNumber,
- * iConfiguration, iInterface, etc.
- */
-enum cusbd_string_id
-{
-    CUSBD_MANUFACTURER_STRING_ID = 1,   /**<! ID given to all manufacturer strings. */
-    CUSBD_PRODUCT_STRING_ID,            /**<! ID given to all product strings. */
-    CUSBD_SERIAL_NUMBER_STRING_ID,      /**<! ID given to all serial number strings. */
-    /*********************************/
-    CUSBD_USER_STRING_ID_BEGIN          /**<! Strings attached to descriptors start at this ID. */
-};
-
 #pragma message("TODO: Device qualifier not handled for now.")
 /**
  * @brief Object representing a USB device. This is the main
@@ -201,16 +202,16 @@ struct cusbd
     /// as the device's descriptor tree is updated.
     /// @warning This struct is packed and will always be in 
     /// little endian.
-    struct cusb_device_descriptor descriptor;
+    struct cusbd_device_descriptor descriptor;
 
     /// @brief Device's string descriptor zero, which lists
     /// the languages this device supports. Optional. Equals 
     /// @ref CUSBD_STRING_ZERO_UNUSED if unused.
     /// @warning If this is unused the device can not use any
     /// string descriptors. This means no cusbd_add_string()
-    /// functions can be used and no cusb_add_string() functions
+    /// functions can be used and no cusbd_add_string() functions
     /// can be used on any of the device's descriptors.
-    const struct cusb_string_zero *string0;
+    const struct cusbd_string_zero *string0;
 
     /// @brief Configuration descriptors attached to this device.
     /// @warning Once the device is fully setup this must contain at 
@@ -233,32 +234,32 @@ struct cusbd
     /// @warning Device must use string0 if this is used.
     struct ecu_dlist serial_number_strings;
 
-    /// @brief Dependency injection that links the CUSB device
+    /// @brief Dependency injection that links the CUSBD device
     /// with user's hardware USB controller.
     struct 
     {
         /// @brief User-defined function that must configure the
         /// specified endpoint. For the control endpoint,
-        /// id equals @ref CUSB_ENDPOINT0_OUT or @ref CUSB_ENDPOINT0_IN,
-        /// type equals @ref CUSB_ENDPOINT_CONTROL_TYPE, and packet_size
-        /// is derived from what was specified in the @ref cusb_device_descriptor
+        /// id equals @ref CUSBD_ENDPOINT0_OUT or @ref CUSBD_ENDPOINT0_IN,
+        /// type equals @ref CUSBD_ENDPOINT_CONTROL_TYPE, and packet_size
+        /// is derived from what was specified in the @ref cusbd_device_descriptor
         /// supplied in @ref cusbd_ctor(). For all other endpoints,
-        /// id equals the active endpoint's user-ID specified in @ref cusb_endpoint_ctor(),
+        /// id equals the active endpoint's user-ID specified in @ref cusbd_endpoint_ctor(),
         /// Type and packet_size are derived from the active
-        /// endpoint's descriptor (@ref cusb_endpoint_descriptor) supplied 
-        /// in @ref cusb_endpoint_ctor().
+        /// endpoint's descriptor (@ref cusbd_endpoint_descriptor) supplied 
+        /// in @ref cusbd_endpoint_ctor().
         /// Called during initial device enumeration or when
         /// the device's configuration/interface changes due to a
         /// SET_CONFIGURATION() or SET_INTERFACE() request.
-        void (*configure)(endpoint_id_t id, enum cusb_endpoint_type type, uint16_t packet_size, void *obj);
+        void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj);
 
         /// @brief User-defined function that is called when data
         /// needs to be sent to the host. The supplied data must be
         /// placed into the specified endpoint's (IN) buffer. len is 
-        /// the number of bytes of data. id equals @ref CUSB_ENDPOINT0_IN 
+        /// the number of bytes of data. id equals @ref CUSBD_ENDPOINT0_IN 
         /// for the control endpoint. For all other endpoints,
-        /// id equals the endpoint's user-ID specified in @ref cusb_endpoint_ctor().
-        void (*post)(endpoint_id_t id, const void *data, size_t len, void *obj);
+        /// id equals the endpoint's user-ID specified in @ref cusbd_endpoint_ctor().
+        void (*post)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj);
 
         /// @brief Optional object to pass to endpoint functions.
         /// Equals CUSBD_ENDPOINT_OBJ_UNUSED if unused.
@@ -280,19 +281,19 @@ extern "C" {
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSB_DEVICE_DESCRIPTOR_CTOR().
- * @pre If used, @p string0 previously constructed via @ref CUSB_STRING_DESCRIPTOR_ZERO_CTOR().
- * @brief CUSB device constructor.
+ * @pre @p descriptor previously constructed via @ref CUSBD_DEVICE_DESCRIPTOR_CTOR().
+ * @pre If used, @p string0 previously constructed via @ref CUSBD_STRING_DESCRIPTOR_ZERO_CTOR().
+ * @brief CUSBD device constructor.
  * 
- * @warning This cannot be called on an active CUSB device.
+ * @warning This cannot be called on an active CUSBD device.
  * Doing so is undefined behavior.
  * 
- * @param me CUSB device to construct.
- * @param descriptor The device descriptor associated with this CUSB device. 
- * @param string0 String descriptor zero associated with this CUSB device.
+ * @param me CUSBD device to construct.
+ * @param descriptor The device descriptor associated with this CUSBD device. 
+ * @param string0 String descriptor zero associated with this CUSBD device.
  * Optional. Supply @ref CUSBD_STRING_ZERO_UNUSED if unused. If this is unused,
  * the device can not use any string descriptors, meaning no cusbd_add_string()
- * functions can be called on this device and no cusb_add_string() functions
+ * functions can be called on this device and no cusbd_add_string() functions
  * can be called on any of the device's descriptors.
  * @param configure User-defined function that configures the specified
  * endpoint. See @ref cusbd.endpoint.configure.
@@ -302,10 +303,10 @@ extern "C" {
  * functions. Supply @ref CUSBD_ENDPOINT_OBJ_UNUSED if unused.
  */
 extern void cusbd_ctor(struct cusbd *me,
-                       const struct cusb_device_descriptor *descriptor,
-                       const struct cusb_string_zero *string0,
-                       void (*configure)(endpoint_id_t id, enum cusb_endpoint_type type, uint16_t packet_size, void *obj),
-                       void (*post)(endpoint_id_t id, const void *data, size_t len, void *obj),
+                       const struct cusbd_device_descriptor *descriptor,
+                       const struct cusbd_string_zero *string0,
+                       void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj),
+                       void (*post)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj),
                        void *obj);
 /**@}*/
 
@@ -315,22 +316,22 @@ extern void cusbd_ctor(struct cusbd *me,
 /**@{*/
 /**
  * @pre @p me previously constructed via @ref cusbd_ctor().
- * @pre @p configuration previously constructed via @ref cusb_configuration_ctor().
- * @brief Adds a configuration descriptor to the CUSB device.
+ * @pre @p configuration previously constructed via @ref cusbd_configuration_ctor().
+ * @brief Adds a configuration descriptor to the CUSBD device.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
  * is called. Otherwise behavior is undefined.
  * 
- * @param me CUSB device to add to.
+ * @param me CUSBD device to add to.
  * @param configuration Configuration descriptor to add. This cannot 
- * already be within a CUSB device.
+ * already be within a CUSBD device.
  */
 extern void cusbd_add_configuration(struct cusbd *me,
-                                    struct cusb_configuration *configuration);
+                                    struct cusbd_configuration *configuration);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a manufacturer string to the device.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
@@ -338,16 +339,16 @@ extern void cusbd_add_configuration(struct cusbd *me,
  * @warning This can only be used if the device has a string descriptor
  * zero. I.e. a populated string0 was passed to @ref cusbd_ctor().
  * 
- * @param me CUSB device to add to.
+ * @param me CUSBD device to add to.
  * @param string String descriptor to add. This cannot already
- * be within a CUSB device.
+ * be within a CUSBD device.
  */
 extern void cusbd_add_manufacturer_string(struct cusbd *me,
-                                          struct cusb_string *string);
+                                          struct cusbd_string *string);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a product string to the device.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
@@ -355,16 +356,16 @@ extern void cusbd_add_manufacturer_string(struct cusbd *me,
  * @warning This can only be used if the device has a string descriptor
  * zero. I.e. a populated string0 was passed to @ref cusbd_ctor().
  * 
- * @param me CUSB device to add to.
+ * @param me CUSBD device to add to.
  * @param string String descriptor to add. This cannot already
- * be within a CUSB device.
+ * be within a CUSBD device.
  */
 extern void cusbd_add_product_string(struct cusbd *me,
-                                     struct cusb_string *string);
+                                     struct cusbd_string *string);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a serial number string to the device.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
@@ -372,12 +373,12 @@ extern void cusbd_add_product_string(struct cusbd *me,
  * @warning This can only be used if the device has a string descriptor
  * zero. I.e. a populated string0 was passed to @ref cusbd_ctor().
  * 
- * @param me CUSB device to add to.
+ * @param me CUSBD device to add to.
  * @param string String descriptor to add. This cannot already
- * be within a CUSB device.
+ * be within a CUSBD device.
  */
 extern void cusbd_add_serial_number_string(struct cusbd *me,
-                                           struct cusb_string *string);
+                                           struct cusbd_string *string);
 
 extern void cusbd_start(struct cusbd *me);
 extern void cusbd_dispatch(struct cusbd *me, const void *event);

@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2025
  */
 
-#ifndef CUSB_ENDPOINT_H_
-#define CUSB_ENDPOINT_H_
+#ifndef CUSBD_ENDPOINT_H_
+#define CUSBD_ENDPOINT_H_
 
 /*------------------------------------------------------------*/
 /*------------------------- INCLUDES -------------------------*/
@@ -18,8 +18,8 @@
 /* STDLib. */
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusb/descriptors.h"
+/* CUSBD. */
+#include "cusbd/descriptor.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
@@ -31,12 +31,12 @@
 /*------------------------------------------------------------*/
 
 /**
- * @brief Creates a @ref cusb_endpoint_descriptor at
+ * @brief Creates a @ref cusbd_endpoint_descriptor at
  * either compile-time or run-time. Example usage below
  * creates a bulk IN endpoint1 with a max packet size of 
  * 64 bytes:
  * @code{.c}
- * static const struct cusb_endpoint_descriptor endpoint = CUSB_ENDPOINT_DESCRIPTOR_CTOR(
+ * static const struct cusbd_endpoint_descriptor endpoint = CUSBD_ENDPOINT_DESCRIPTOR_CTOR(
  *      1, ((1U << 0) | (1U << 1)), 64, 0
  * );
  * @endcode
@@ -57,13 +57,13 @@
  * @param bInterval_ Time interval for polling endpoints.
  * See USB spec.
  */
-#define CUSB_ENDPOINT_DESCRIPTOR_CTOR(bEndpointAddress_,                \
-                                      bmAttributes_,                    \
-                                      wMaxPacketSize_,                  \
-                                      bInterval_)                       \
+#define CUSBD_ENDPOINT_DESCRIPTOR_CTOR(bEndpointAddress_,               \
+                                       bmAttributes_,                   \
+                                       wMaxPacketSize_,                 \
+                                       bInterval_)                      \
     {                                                                   \
-        .bLength = sizeof(struct cusb_endpoint_descriptor),             \
-        .bDescriptorType = CUSB_ENDPOINT_DESCRIPTOR_TYPE,               \
+        .bLength = sizeof(struct cusbd_endpoint_descriptor),            \
+        .bDescriptorType = CUSBD_ENDPOINT_DESCRIPTOR_TYPE,              \
         .bEndpointAddress = (bEndpointAddress_),                        \
         .bmAttributes = (bmAttributes_),                                \
         .wMaxPacketSize = ECU_CPU_TO_LE16_COMPILETIME(wMaxPacketSize_), \
@@ -71,43 +71,43 @@
     }
 
 /*------------------------------------------------------------*/
-/*------------------------ CUSB ENDPOINT ---------------------*/
+/*----------------------- CUSBD ENDPOINT ---------------------*/
 /*------------------------------------------------------------*/
 
 /**
- * @brief Type given to endpoint ID (@ref cusb_endpoint.id).
+ * @brief Type given to endpoint ID (@ref cusbd_endpoint.id).
  * This allows the library to implicitly typecase between
- * @ref cusb_endpoint_reserved_ids and the user-specified
+ * @ref cusbd_endpoint_reserved_ids and the user-specified
  * endpoint IDs. Typedeffed incase this has to change in
  * the future.
  * 
  * @warning This must be a signed type so reserved enumerations
  * less than 0 can be stored.
  */
-typedef int16_t endpoint_id_t;
+typedef int16_t cusbd_endpoint_id_t;
 
 /**
  * @brief Possible endpoint types, as defined by USB.
  */
-enum cusb_endpoint_type
+enum cusbd_endpoint_type
 {
-    CUSB_ENDPOINT_CONTROL_TYPE,     /**<! Endpoint0. Control endpoint. */
-    CUSB_ENDPOINT_INTERRUPT_TYPE,   /**<! Endpoint used for interrupt transfers. */
-    CUSB_ENDPOINT_ISOCHRONOUS_TYPE, /**<! Endpoint used for isochronous transfers. */
-    CUSB_ENDPOINT_BULK_TYPE,        /**<! Endpoint used for bulk transfers. */
+    CUSBD_ENDPOINT_CONTROL_TYPE,     /**<! Endpoint0. Control endpoint. */
+    CUSBD_ENDPOINT_INTERRUPT_TYPE,   /**<! Endpoint used for interrupt transfers. */
+    CUSBD_ENDPOINT_ISOCHRONOUS_TYPE, /**<! Endpoint used for isochronous transfers. */
+    CUSBD_ENDPOINT_BULK_TYPE,        /**<! Endpoint used for bulk transfers. */
     /****************************/
-    CUSB_ENDPOINT_TYPE_COUNT        /**<! Total number of endpoint types defined by USB. */
+    CUSBD_ENDPOINT_TYPE_COUNT        /**<! Total number of endpoint types defined by USB. */
 };
 
 /**
  * @brief Reserved endpoint IDs.
  */
-enum cusb_endpoint_reserved_ids
+enum cusbd_endpoint_reserved_ids
 {
-    CUSB_ENDPOINT0_OUT_ID = -2,     /**<! RESERVED. ID assigned to control endpoint OUT. */
-    CUSB_ENDPOINT0_IN_ID = -1,      /**<! RESERVED. ID assigned to control endpoint IN. */
+    CUSBD_ENDPOINT0_OUT_ID = -2,     /**<! RESERVED. ID assigned to control endpoint OUT. */
+    CUSBD_ENDPOINT0_IN_ID = -1,      /**<! RESERVED. ID assigned to control endpoint IN. */
     /***************************/
-    CUSB_ENDPOINT_USER_ID_BEGIN     /**<! Start of user-specified endpoint IDs. Will always be 0. */
+    CUSBD_ENDPOINT_USER_ID_BEGIN     /**<! Start of user-specified endpoint IDs. Will always be 0. */
 };
 
 /**
@@ -118,7 +118,7 @@ enum cusb_endpoint_reserved_ids
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_endpoint_descriptor
+struct cusbd_endpoint_descriptor
 {
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
@@ -151,7 +151,7 @@ struct cusb_endpoint_descriptor
  * @warning This should not be created for endpoint0
  * since there is never a descriptor for endpoint0.
  */
-struct cusb_endpoint
+struct cusbd_endpoint
 {
     /// @brief Node in linked list.
     struct ecu_dnode dnode;
@@ -160,18 +160,18 @@ struct cusb_endpoint
     /// automatically adjust it as the device is updated.
     /// @warning This struct is packed and will always be in 
     /// little endian.
-    struct cusb_endpoint_descriptor descriptor;
+    struct cusbd_endpoint_descriptor descriptor;
 
     /// @brief Each endpoint is parameterized by this user-specified
     /// ID. The value maps to a specific endpoint on the target device. 
     /// I.e. id of 0 == endpoint1 IN, id of 1 == endpoint1 OUT, etc.
     /// @warning This must never be used to identify endpoint0.
-    /// The ID must always be >= @ref CUSB_ENDPOINT_USER_ID_BEGIN.
-    endpoint_id_t id;
+    /// The ID must always be >= @ref CUSBD_ENDPOINT_USER_ID_BEGIN.
+    cusbd_endpoint_id_t id;
 };
 
 /*------------------------------------------------------------*/
-/*----------------- CUSB ENDPOINT MEMBER FUNCTIONS -----------*/
+/*---------------- CUSBD ENDPOINT MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
 
 #ifdef __cplusplus
@@ -179,12 +179,12 @@ extern "C" {
 #endif
 
 /**
- * @name CUSB Endpoint Constructors
+ * @name CUSBD Endpoint Constructors
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSB_ENDPOINT_DESCRIPTOR_CTOR().
+ * @pre @p descriptor previously constructed via @ref CUSBD_ENDPOINT_DESCRIPTOR_CTOR().
  * @brief Endpoint descriptor constructor.
  * 
  * @warning This cannot be called on an active endpoint 
@@ -198,30 +198,30 @@ extern "C" {
  * ID. The value maps to a specific endpoint on the target device. 
  * I.e. id of 0 == endpoint1 IN, id of 1 == endpoint1 OUT, etc.
  * This must never be used to identify endpoint0.
- * This ID must always be >= @ref CUSB_ENDPOINT_USER_ID_BEGIN.
+ * This ID must always be >= @ref CUSBD_ENDPOINT_USER_ID_BEGIN.
  */
-extern void cusb_endpoint_ctor(struct cusb_endpoint *me,
-                               const struct cusb_endpoint_descriptor *descriptor,
-                               endpoint_id_t id);
+extern void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
+                                const struct cusbd_endpoint_descriptor *descriptor,
+                                cusbd_endpoint_id_t id);
 /**@}*/
 
 /**
- * @name CUSB Endpoint Member Functions
+ * @name CUSBD Endpoint Member Functions
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusb_endpoint().
+ * @pre @p me previously constructed via @ref cusbd_endpoint().
  * @brief Returns true if the supplied endpoint descriptor contains
- * valid data and was properly constructed via @ref cusb_endpoint(). 
+ * valid data and was properly constructed via @ref cusbd_endpoint(). 
  * False otherwise.
  * 
  * @param me Interface descriptor to check.
  */
-extern bool cusb_endpoint_valid(const struct cusb_endpoint *me);
+extern bool cusbd_endpoint_valid(const struct cusbd_endpoint *me);
 /**@}*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CUSB_ENDPOINT_H_ */
+#endif /* CUSBD_ENDPOINT_H_ */

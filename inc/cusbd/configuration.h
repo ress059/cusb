@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2025
  */
 
-#ifndef CUSB_CONFIGURATION_H_
-#define CUSB_CONFIGURATION_H_
+#ifndef CUSBD_CONFIGURATION_H_
+#define CUSBD_CONFIGURATION_H_
 
 /*------------------------------------------------------------*/
 /*------------------------- INCLUDES -------------------------*/
@@ -20,10 +20,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusb/descriptors.h"
-#include "cusb/interface.h"
-#include "cusb/string.h"
+/* CUSBD. */
+#include "cusbd/descriptor.h"
+#include "cusbd/interface.h"
+#include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
@@ -35,7 +35,7 @@
 
 /**
  * @brief Helper macro that supplies bMaxPower parameter to
- * @ref CUSB_CONFIGURATION_DESCRIPTOR_CTOR(). This is the
+ * @ref CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(). This is the
  * bMaxPower field in the configuration descriptor, which
  * represents max power in 2mA units. For example 50 == 100mA 
  * max power. This macro allows the user to supply a raw number
@@ -44,30 +44,30 @@
  * @param milliamps_ Max power consumption of USB device in
  * milliAmps. This cannot exceed 500.  
  */
-#define CUSB_CONFIGURATION_SET_BMAXPOWER(milliamps_) \
+#define CUSBD_CONFIGURATION_SET_BMAXPOWER(milliamps_) \
     ((milliamps_) >> 1U)
 
 /**
- * @brief Creates a @ref cusb_configuration_descriptor at
+ * @brief Creates a @ref cusbd_configuration_descriptor at
  * either compile-time or run-time. Example usage:
  * @code{.c}
- * static const struct cusb_configuration_descriptor config = CUSB_CONFIGURATION_DESCRIPTOR_CTOR(
- *      0, CUSB_CONFIGURATION_SET_BMAXPOWER(500)
+ * static const struct cusbd_configuration_descriptor config = CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(
+ *      0, CUSBD_CONFIGURATION_SET_BMAXPOWER(500)
  * );
  * @endcode
  * 
  * @param bmAttributes_ Bitmap of characteristics. I.e. if device is self-powered,
  * remote wakeup, etc. See USB spec.
  * @param bMaxPower_ Max power consumption of the USB device in 2mA units.
- * I.e. 50 == 100mA max power. Cannot exceed 250. @ref CUSB_CONFIGURATION_SET_BMAXPOWER() 
+ * I.e. 50 == 100mA max power. Cannot exceed 250. @ref CUSBD_CONFIGURATION_SET_BMAXPOWER() 
  * allows a raw number to be supplied instead. Cannot exceed 500 if this
  * is a raw number.
  */
-#define CUSB_CONFIGURATION_DESCRIPTOR_CTOR(bmAttributes_,           \
-                                           bMaxPower_)              \
+#define CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(bmAttributes_,          \
+                                            bMaxPower_)             \
     {                                                               \
-        .bLength = sizeof(struct cusb_configuration_descriptor),    \
-        .bDescriptorType = CUSB_CONFIGURATION_DESCRIPTOR_TYPE,      \
+        .bLength = sizeof(struct cusbd_configuration_descriptor),   \
+        .bDescriptorType = CUSBD_CONFIGURATION_DESCRIPTOR_TYPE,     \
         .wTotalLength = 0,                                          \
         .bNumInterfaces = 0,                                        \
         .bConfigurationValue = 0,                                   \
@@ -77,7 +77,7 @@
     }
 
 /*------------------------------------------------------------*/
-/*---------------------- CUSB CONFIGURATION ------------------*/
+/*--------------------- CUSBD CONFIGURATION ------------------*/
 /*------------------------------------------------------------*/
 
 /**
@@ -88,7 +88,7 @@
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_configuration_descriptor
+struct cusbd_configuration_descriptor
 {
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
@@ -132,7 +132,7 @@ struct cusb_configuration_descriptor
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusb_configuration
+struct cusbd_configuration
 {
     /// @brief Node in linked list.
     struct ecu_dnode dnode;
@@ -141,7 +141,7 @@ struct cusb_configuration
     /// adjust bNumInterfaces, bConfigurationValue, etc as the device's
     /// descriptor tree is updated.
     /// @warning This struct is packed and will always be in little endian.
-    struct cusb_configuration_descriptor descriptor;
+    struct cusbd_configuration_descriptor descriptor;
 
     /// @brief Interface descriptors attached to this configuration descriptor.
     /// @warning Once the device is fully setup this must contain at 
@@ -157,7 +157,7 @@ struct cusb_configuration
 };
 
 /*------------------------------------------------------------*/
-/*------------ CUSB CONFIGURATION MEMBER FUNCTIONS -----------*/
+/*------------ CUSBD CONFIGURATION MEMBER FUNCTIONS ----------*/
 /*------------------------------------------------------------*/
 
 #ifdef __cplusplus
@@ -165,12 +165,12 @@ extern "C" {
 #endif
 
 /**
- * @name CUSB Configuration Constructors
+ * @name CUSBD Configuration Constructors
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSB_CONFIGURATION_DESCRIPTOR_CTOR().
+ * @pre @p descriptor previously constructed via @ref CUSBD_CONFIGURATION_DESCRIPTOR_CTOR().
  * @brief Configuration descriptor constructor.
  * 
  * @warning This cannot be called on an active configuration 
@@ -179,17 +179,17 @@ extern "C" {
  * @param me Configuration descriptor to construct.
  * @param descriptor The configuration descriptor's data.
  */
-extern void cusb_configuration_ctor(struct cusb_configuration *me,
-                                    const struct cusb_configuration_descriptor *descriptor);
+extern void cusbd_configuration_ctor(struct cusbd_configuration *me,
+                                     const struct cusbd_configuration_descriptor *descriptor);
 /**@}*/
 
 /**
- * @name CUSB Configuration Member Functions
+ * @name CUSBD Configuration Member Functions
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
- * @pre @p interface previously constructed via @ref cusb_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
+ * @pre @p interface previously constructed via @ref cusbd_interface_ctor().
  * @brief Adds an interface descriptor to the supplied configuration 
  * descriptor.
  * 
@@ -200,12 +200,12 @@ extern void cusb_configuration_ctor(struct cusb_configuration *me,
  * @param interface Interface descriptor to add. This cannot already 
  * be within another configuration descriptor.
  */
-extern void cusb_configuration_add_interface(struct cusb_configuration *me,
-                                             struct cusb_interface *interface);
+extern void cusbd_configuration_add_interface(struct cusbd_configuration *me,
+                                              struct cusbd_interface *interface);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
- * @pre @p string previously constructed via @ref cusb_string_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
+ * @pre @p string previously constructed via @ref cusbd_string_ctor().
  * @brief Adds a string descriptor to the supplied configuration
  * descriptor.
  * 
@@ -219,35 +219,35 @@ extern void cusb_configuration_add_interface(struct cusb_configuration *me,
  * @param string String descriptor to add. This cannot already be within
  * another descriptor.
  */
-extern void cusb_configuration_add_string(struct cusb_configuration *me,
-                                          struct cusb_string *string);
+extern void cusbd_configuration_add_string(struct cusbd_configuration *me,
+                                           struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns true if the supplied configuration descriptor contains
- * valid data and was properly constructed via @ref cusb_configuration_ctor(). 
+ * valid data and was properly constructed via @ref cusbd_configuration_ctor(). 
  * False otherwise.
  * 
  * @param me Configuration descriptor to check.
  */
-extern bool cusb_configuration_valid(const struct cusb_configuration *me);
+extern bool cusbd_configuration_valid(const struct cusbd_configuration *me);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns the number of interface descriptors attached to the
  * supplied configuration descriptor.
  * 
  * @param me Configuration descriptor to check.
  */
-extern size_t cusb_configuration_interface_count(const struct cusb_configuration *me);
+extern size_t cusbd_configuration_interface_count(const struct cusbd_configuration *me);
 
 /**
- * @pre @p me previously constructed via @ref cusb_configuration_ctor().
+ * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns number of bytes in the entire configuration 
  * descriptor's subtree. I.e. sizeof(configuration descriptor) + 
  * sizeof(all interface descriptors) + sizeof(all alternate interface descriptors) + ...
  * The size of the descriptor's data is used, NOT the size of the 
- * CUSB objects. The return value of this function is meant to be 
+ * CUSBD objects. The return value of this function is meant to be 
  * used to update wTotalLength in the configuration descriptor.
  * 
  * @warning This value is returned in native endianness, not
@@ -255,11 +255,11 @@ extern size_t cusb_configuration_interface_count(const struct cusb_configuration
  * 
  * @param me Configuration descriptor to check.
  */
-extern size_t cusb_configuration_size(const struct cusb_configuration *me);
+extern size_t cusbd_configuration_size(const struct cusbd_configuration *me);
 /**@}*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CUSB_CONFIGURATION_H_ */
+#endif /* CUSBD_CONFIGURATION_H_ */
