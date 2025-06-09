@@ -62,7 +62,7 @@ static bool device_descriptor_valid(const struct cusbd_device_descriptor *descri
     Do not assert iManufacturer, iProduct, iSerialNumber, and bNumConfigurations 
     since these are automatically updated when descriptors are added to the device. */
     if ((descriptor->bLength == sizeof(struct cusbd_device_descriptor)) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_DEVICE_DESCRIPTOR_TYPE) &&
+        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_DEVICE) &&
         (descriptor->bMaxPacketSize0 == (uint8_t)8 || descriptor->bMaxPacketSize0 == (uint8_t)16 ||
          descriptor->bMaxPacketSize0 == (uint8_t)32 || descriptor->bMaxPacketSize0 == (uint8_t)64))
     {

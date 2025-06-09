@@ -25,76 +25,15 @@
 ECU_ASSERT_DEFINE_NAME("cusbd/descriptor.c")
 
 /*------------------------------------------------------------*/
-/*---------------- STATIC FUNCTION DECLARATIONS --------------*/
-/*------------------------------------------------------------*/
-
-/**
- * @brief Acts as pure virtual function by simply asserting.
- * Must be overridden by derived classes.
- */
-static bool valid(const struct cusbd_descriptor *me);
-
-/**
- * @brief Acts as pure virtual function by simply asserting.
- * Must be overridden by derived classes.
- */
-static size_t wTotalLength(const struct cusbd_descriptor *me);
-
-/**
- * @brief Acts as pure virtual function by simply asserting.
- * Must be overridden by derived classes.
- */
-static bool process_std_request(struct cusbd_descriptor *me, 
-                                const struct cusbd_std_request *request,
-                                enum cusbd_state state, 
-                                void *buf, 
-                                size_t len);
-
-/*------------------------------------------------------------*/
-/*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
-/*------------------------------------------------------------*/
-
-static bool valid(const struct cusbd_descriptor *me)
-{
-    (void)me;
-    ECU_RUNTIME_ASSERT( (false) );
-    return false;
-}
-
-static size_t wTotalLength(const struct cusbd_descriptor *me)
-{
-    (void)me;
-    ECU_RUNTIME_ASSERT( (false) );
-}
-
-static bool process_std_request(struct cusbd_descriptor *me, 
-                                const struct cusbd_std_request *request,
-                                enum cusbd_state state, 
-                                void *buf, 
-                                size_t len)
-{
-    (void)me;
-    (void)request;
-    (void)state;
-    (void)buf;
-    (void)len;
-    ECU_RUNTIME_ASSERT( (false) );
-    return false;
-}
-
-/*------------------------------------------------------------*/
 /*------- CUSBD DESCRIPTOR BASE CLASS MEMBER FUNCTIONS -------*/
 /*------------------------------------------------------------*/
 
 void cusbd_descriptor_ctor(struct cusbd_descriptor *me, ecu_object_id bDescriptorType)
 {
-    static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
-        &valid, &wTotalLength, &process_std_request
-    );
-
     ECU_RUNTIME_ASSERT( (me) );
     ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, bDescriptorType);
-    me->vptr = &vtable;
+    /* Emulate pure virtual interface by setting vptr to NULL. */
+    me->vptr = (const struct cusbd_descriptor_vtable *)0;
 }
 
 ecu_object_id cusbd_descriptor_type(const struct cusbd_descriptor *me)
@@ -103,7 +42,7 @@ ecu_object_id cusbd_descriptor_type(const struct cusbd_descriptor *me)
     return ecu_ntnode_get_id(&me->ntnode);
 }
 
-bool cusbd_descriptor_vvalid(const struct cusbd_descriptor *me)
+bool v_cusbd_descriptor_valid(const struct cusbd_descriptor *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
     ECU_RUNTIME_ASSERT( (me->vptr) );
@@ -111,7 +50,7 @@ bool cusbd_descriptor_vvalid(const struct cusbd_descriptor *me)
     return ((*me->vptr->valid)(me));
 }
 
-size_t cusbd_descriptor_vwTotalLength(const struct cusbd_descriptor *me)
+uint16_t v_cusbd_descriptor_wTotalLength(const struct cusbd_descriptor *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
     ECU_RUNTIME_ASSERT( (me->vptr) );
@@ -119,14 +58,62 @@ size_t cusbd_descriptor_vwTotalLength(const struct cusbd_descriptor *me)
     return ((*me->vptr->wTotalLength)(me));
 }
 
-bool cusbd_descriptor_vprocess_std_request(struct cusbd_descriptor *me, 
-                                           const struct cusbd_std_request *request,
-                                           enum cusbd_state state, 
-                                           void *buf, 
-                                           size_t len)
+enum cusbd_request_status v_cusbd_descriptor_default_state_in(struct cusbd_descriptor *me,
+                                                              const struct cusbd_request *request,
+                                                              void *buf,
+                                                              size_t len)
 {
     ECU_RUNTIME_ASSERT( (me) );
     ECU_RUNTIME_ASSERT( (me->vptr) );
-    ECU_RUNTIME_ASSERT( (me->vptr->process_std_request) );
-    return ((*me->vptr->process_std_request)(me, request, state, buf, len));
+    ECU_RUNTIME_ASSERT( (me->vptr->default_state_in) );
+    return ((*me->vptr->default_state_in)(me, request, buf, len));
+}
+
+enum cusbd_request_status v_cusbd_descriptor_default_state_out(struct cusbd_descriptor *me,
+                                                               const struct cusbd_request *request)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (me->vptr) );
+    ECU_RUNTIME_ASSERT( (me->vptr->default_state_out) );
+    return ((*me->vptr->default_state_out)(me, request));
+}
+
+enum cusbd_request_status v_cusbd_descriptor_address_state_in(struct cusbd_descriptor *me,
+                                                              const struct cusbd_request *request,
+                                                              void *buf,
+                                                              size_t len)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (me->vptr) );
+    ECU_RUNTIME_ASSERT( (me->vptr->address_state_in) );
+    return ((*me->vptr->address_state_in)(me, request, buf, len));
+}
+
+enum cusbd_request_status v_cusbd_descriptor_address_state_out(struct cusbd_descriptor *me,
+                                                               const struct cusbd_request *request)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (me->vptr) );
+    ECU_RUNTIME_ASSERT( (me->vptr->address_state_out) );
+    return ((*me->vptr->address_state_out)(me, request));
+}
+
+enum cusbd_request_status v_cusbd_descriptor_configured_state_in(struct cusbd_descriptor *me,
+                                                                 const struct cusbd_request *request,
+                                                                 void *buf,
+                                                                 size_t len)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (me->vptr) );
+    ECU_RUNTIME_ASSERT( (me->vptr->configured_state_in) );
+    return ((*me->vptr->configured_state_in)(me, request, buf, len));
+}
+
+enum cusbd_request_status v_cusbd_descriptor_configured_state_out(struct cusbd_descriptor *me,
+                                                                  const struct cusbd_request *request)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (me->vptr) );
+    ECU_RUNTIME_ASSERT( (me->vptr->configured_state_out) );
+    return ((*me->vptr->configured_state_out)(me, request));
 }

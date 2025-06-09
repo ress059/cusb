@@ -55,7 +55,7 @@
         .bLength = ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bLength) +     \
             ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bDescriptorType) +    \
             sizeof(languages_)/sizeof(languages_[0]),                                   \
-        .bDescriptorType = CUSBD_STRING_DESCRIPTOR_TYPE,                                \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_STRING,                                \
         .wLANGID = (&languages_[0])                                                     \
     }
 
@@ -73,7 +73,7 @@
         .bLength = ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bLength) +          \
             ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bDescriptorType) +         \
             sizeof(u##string_) - sizeof(cusbd_utf16_t), /* Subtract NULL character. */  \
-        .bDescriptorType = CUSBD_STRING_DESCRIPTOR_TYPE,                                \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_STRING,                                \
         .bString = u##string_                                                           \
     }
 

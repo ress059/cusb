@@ -67,7 +67,7 @@
                                             bMaxPower_)             \
     {                                                               \
         .bLength = sizeof(struct cusbd_configuration_descriptor),   \
-        .bDescriptorType = CUSBD_CONFIGURATION_DESCRIPTOR_TYPE,     \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_CONFIGURATION,     \
         .wTotalLength = 0,                                          \
         .bNumInterfaces = 0,                                        \
         .bConfigurationValue = 0,                                   \
@@ -255,6 +255,7 @@ extern size_t cusbd_configuration_interface_count(const struct cusbd_configurati
  * 
  * @param me Configuration descriptor to check.
  */
+!!!! TODO Make return value uint16_t but use size_t in function to assert size <= UINT16_MAX
 extern size_t cusbd_configuration_size(const struct cusbd_configuration *me);
 /**@}*/
 

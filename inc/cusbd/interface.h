@@ -49,7 +49,7 @@
                                         bInterfaceProtocol_)    \
     {                                                           \
         .bLength = sizeof(struct cusbd_interface_descriptor),   \
-        .bDescriptorType = CUSBD_INTERFACE_DESCRIPTOR_TYPE,     \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_INTERFACE,     \
         .bInterfaceNumber = 0,                                  \
         .bAlternateSetting = 0,                                 \
         .bNumEndpoints = 0,                                     \
@@ -66,9 +66,7 @@
 /**
  * @brief Data in a standard interface descriptor.
  * Alternate interfaces also use this same data.
- * Currently no multi-byte values but if USB spec ever
- * changes and adds multi-byte values, using this API
- * will ensure it is always in little endian format.
+ * This will always be in little endian format.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
@@ -131,6 +129,10 @@ struct cusbd_interface
     /// @warning This struct is packed and will always be in 
     /// little endian.
     struct cusbd_interface_descriptor descriptor;
+
+    /// @brief Currently active alternate interface (bAlternateSetting).
+    /// 0 if no alternate setting selected.
+    uint8_t alternate_setting;
 
     /// @brief String descriptors attached to this interface descriptor. 
     /// Optional. Empty if unused.
@@ -201,8 +203,8 @@ extern void cusbd_interface_ctor(struct cusbd_interface *me,
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusbd_interface_ctor().
- * @pre @p alternate_interface previously constructed via @ref cusbd_alternate_interface_ctor().
+ * @pre @p me constructed via @ref cusbd_interface_ctor().
+ * @pre @p alternate_interface previously constructed via @ref cusbd_interface_ctor().
  * @brief Adds an alternate interface descriptor to the supplied interface 
  * descriptor.
  * 
@@ -210,7 +212,7 @@ extern void cusbd_interface_ctor(struct cusbd_interface *me,
  * is called. Otherwise behavior is undefined.
  * 
  * @param me Interface descriptor to add to.
- * @param alternate_interface Alternate interface descriptor to add. 
+ * @param descriptor Alternate interface descriptor to add. 
  * This cannot already be within another interface descriptor.
  */
 extern void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
@@ -252,32 +254,6 @@ extern void cusbd_interface_add_endpoint(struct cusbd_interface *me,
  */
 extern void cusbd_interface_add_string(struct cusbd_interface *me,
                                        struct cusbd_string *string);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_interface_ctor().
- * @brief Returns true if the supplied interface descriptor contains
- * valid data and was properly constructed via @ref cusbd_interface_ctor(). 
- * False otherwise.
- * 
- * @param me Interface descriptor to check.
- */
-extern bool cusbd_interface_valid(const struct cusbd_interface *me);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
- * @brief Returns number of bytes in the entire interface 
- * descriptor's subtree. I.e. sizeof(interface descriptor) + 
- * sizeof(all endpoint descriptors) + sizeof(all alternate interface descriptors) + ...
- * The size of the descriptor's data is used, NOT the size of the 
- * CUSBD objects. The return value of this function is meant to be 
- * used to update wTotalLength in the configuration descriptor.
- * 
- * @warning This value is returned in native endianness, not
- * little endian.
- * 
- * @param me Configuration descriptor to check.
- */
-extern size_t cusbd_interface_size(const struct cusbd_interface *me);
 /**@}*/
 
 /*------------------------------------------------------------*/
@@ -344,31 +320,6 @@ extern void cusbd_alternate_interface_add_endpoint(struct cusbd_alternate_interf
  */
 extern void cusbd_alternate_interface_add_string(struct cusbd_alternate_interface *me,
                                                  struct cusbd_string *string);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
- * @brief Returns true if the supplied alternate interface descriptor contains
- * valid data and was properly constructed via @ref cusbd_alternate_interface_ctor(). 
- * False otherwise.
- * 
- * @param me Alternate interface descriptor to check.
- */
-extern bool cusbd_alternate_interface_valid(const struct cusbd_alternate_interface *me);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
- * @brief Returns number of bytes of the supplied alternate interface
- * descriptor and all of its endpoints. The size of the descriptor's
- * data is used, NOT the size of the CUSBD objects. The return value 
- * of this function is meant to be used to update wTotalLength in 
- * the configuration descriptor.
- * 
- * @warning This value is returned in native endianness, not
- * little endian.
- * 
- * @param me Alternate interface descriptor to check.
- */
-extern size_t cusbd_alternate_interface_size(const struct cusbd_alternate_interface *me);
 /**@}*/
 
 #ifdef __cplusplus

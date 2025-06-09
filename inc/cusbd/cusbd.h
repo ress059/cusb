@@ -92,7 +92,7 @@
                                      bcdDevice_)                \
     {                                                           \
         .bLength = sizeof(struct cusbd_device_descriptor),      \
-        .bDescriptorType = CUSBD_DEVICE_DESCRIPTOR_TYPE,        \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_DEVICE,        \
         .bcdUSB = ECU_CPU_TO_LE16_COMPILETIME(bcdUSB_),         \
         .bDeviceClass = (bDeviceClass_),                        \
         .bDeviceSubClass = (bDeviceSubClass_),                  \
@@ -241,7 +241,7 @@ struct cusbd
         /// @brief User-defined function that must configure the
         /// specified endpoint. For the control endpoint,
         /// id equals @ref CUSBD_ENDPOINT0_OUT or @ref CUSBD_ENDPOINT0_IN,
-        /// type equals @ref CUSBD_ENDPOINT_CONTROL_TYPE, and packet_size
+        /// type equals @ref CUSBD_ENDPOINT_TYPE_CONTROL, and packet_size
         /// is derived from what was specified in the @ref cusbd_device_descriptor
         /// supplied in @ref cusbd_ctor(). For all other endpoints,
         /// id equals the active endpoint's user-ID specified in @ref cusbd_endpoint_ctor(),

@@ -53,7 +53,7 @@ static bool configuration_descriptor_valid(const struct cusbd_configuration_desc
     /* Do not assert wTotalLength, bNumInterfaces, bConfigurationValue, and iConfiguration 
     since these are automatically updated when descriptors are added to the device. */
     if (descriptor->bLength == sizeof(struct cusbd_configuration_descriptor) &&
-        descriptor->bDescriptorType == (uint8_t)CUSBD_CONFIGURATION_DESCRIPTOR_TYPE)
+        descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_CONFIGURATION)
     {
         status = true;
     }
@@ -78,7 +78,7 @@ void cusbd_configuration_ctor(struct cusbd_configuration *me,
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (configuration_descriptor_valid(&me->descriptor)) );
 
-    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_CONFIGURATION_DESCRIPTOR_TYPE);
+    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_DESCRIPTOR_TYPE_CONFIGURATION);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_configuration_descriptor));
     ecu_dlist_ctor(&me->interfaces);
     ecu_dlist_ctor(&me->strings);

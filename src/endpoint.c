@@ -91,7 +91,7 @@ static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *de
 
 #pragma message("TODO: Figure out wMaxPacketSize and bInterval")
     if ((descriptor->bLength == sizeof(struct cusbd_endpoint_descriptor)) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_ENDPOINT_DESCRIPTOR_TYPE) &&
+        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_ENDPOINT) &&
         ((descriptor->bEndpointAddress & BENDPOINTADDRESS_NUMBER_BITMASK) > 0U) &&
         ((descriptor->bEndpointAddress & BENDPOINTADDRESS_RESERVED_BITMASK) == 0U))
     {
@@ -154,7 +154,7 @@ void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
     ECU_RUNTIME_ASSERT( (endpoint_descriptor_valid(descriptor)) );
     ECU_RUNTIME_ASSERT( (id >= CUSBD_ENDPOINT_USER_ID_BEGIN) );
 
-    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_ENDPOINT_DESCRIPTOR_TYPE);
+    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_DESCRIPTOR_TYPE_ENDPOINT);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_endpoint_descriptor));
     me->id = id;
 }

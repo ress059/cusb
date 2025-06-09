@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     ecu
     GIT_REPOSITORY https://github.com/ress059/ecu.git
-    GIT_TAG        25ae0d074a53ff525a59e29e2c97e88870e7aad5 # Latest master. TODO: Update to latest once ecu released.
+    GIT_TAG        53af55502d640aa64cd5a95a7205a0988de7462d # Latest master. TODO: Update to latest once ecu released.
 )
 FetchContent_MakeAvailable(ecu)
 
@@ -33,6 +33,7 @@ add_library(cusb STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/descriptor.c
     ${CMAKE_CURRENT_LIST_DIR}/src/endpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/src/interface.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/request.c
     ${CMAKE_CURRENT_LIST_DIR}/src/string.c
 )
 

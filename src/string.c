@@ -92,7 +92,7 @@ static bool string_descriptor_zero_valid(const struct cusbd_string_descriptor_ze
         (array_size >= sizeof(descriptor->wLANGID[0])) &&
         /* Must have whole number of language ID codes... I.e. can't be length of 2.5 codes. */
         ((array_size % sizeof(descriptor->wLANGID[0])) == (size_t)0) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_STRING_DESCRIPTOR_TYPE))
+        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_STRING))
     {
         status = true;
     }
@@ -113,7 +113,7 @@ static bool string_descriptor_valid(const struct cusbd_string_descriptor *descri
         (array_size >= sizeof(descriptor->bString[0])) &&
         /* String must have whole number of characters... I.e. can't be length of 2.5 characters. */
         ((array_size % sizeof(descriptor->bString[0])) == (size_t)0) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_STRING_DESCRIPTOR_TYPE))
+        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_STRING))
     {
         status = true;
     }
@@ -205,7 +205,7 @@ void cusbd_string_ctor(struct cusbd_string *me,
 {
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (string_descriptor_valid(descriptor)) );
-    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_STRING_DESCRIPTOR_TYPE);
+    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_DESCRIPTOR_TYPE_STRING);
     me->descriptor = descriptor;
     me->wLANGID = wLANGID;
 }

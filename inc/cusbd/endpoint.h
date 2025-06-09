@@ -63,7 +63,7 @@
                                        bInterval_)                      \
     {                                                                   \
         .bLength = sizeof(struct cusbd_endpoint_descriptor),            \
-        .bDescriptorType = CUSBD_ENDPOINT_DESCRIPTOR_TYPE,              \
+        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_ENDPOINT,              \
         .bEndpointAddress = (bEndpointAddress_),                        \
         .bmAttributes = (bmAttributes_),                                \
         .wMaxPacketSize = ECU_CPU_TO_LE16_COMPILETIME(wMaxPacketSize_), \
@@ -91,10 +91,10 @@ typedef int16_t cusbd_endpoint_id_t;
  */
 enum cusbd_endpoint_type
 {
-    CUSBD_ENDPOINT_CONTROL_TYPE,     /**<! Endpoint0. Control endpoint. */
-    CUSBD_ENDPOINT_INTERRUPT_TYPE,   /**<! Endpoint used for interrupt transfers. */
-    CUSBD_ENDPOINT_ISOCHRONOUS_TYPE, /**<! Endpoint used for isochronous transfers. */
-    CUSBD_ENDPOINT_BULK_TYPE,        /**<! Endpoint used for bulk transfers. */
+    CUSBD_ENDPOINT_TYPE_CONTROL,     /**<! Endpoint0. Control endpoint. */
+    CUSBD_ENDPOINT_TYPE_INTERRUPT,   /**<! Endpoint used for interrupt transfers. */
+    CUSBD_ENDPOINT_TYPE_ISOCHRONOUS, /**<! Endpoint used for isochronous transfers. */
+    CUSBD_ENDPOINT_TYPE_BULK,        /**<! Endpoint used for bulk transfers. */
     /****************************/
     CUSBD_ENDPOINT_TYPE_COUNT        /**<! Total number of endpoint types defined by USB. */
 };
@@ -112,8 +112,7 @@ enum cusbd_endpoint_reserved_ids
 
 /**
  * @brief Data in a standard endpoint descriptor.
- * Using the API ensures this is always encoded in
- * little endian format.
+ * This will always be in little endian format.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
@@ -153,8 +152,9 @@ struct cusbd_endpoint_descriptor
  */
 struct cusbd_endpoint
 {
-    /// @brief Node in linked list.
-    struct ecu_dnode dnode;
+    /// @brief Inherit cusbd_descriptor base class.
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.
@@ -173,6 +173,8 @@ struct cusbd_endpoint
 /*------------------------------------------------------------*/
 /*---------------- CUSBD ENDPOINT MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
+
+!!!!!!!!! TODO Stopped here. Have to make std requests for endpoint and update API.
 
 #ifdef __cplusplus
 extern "C" {
