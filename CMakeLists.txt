@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     ecu
     GIT_REPOSITORY https://github.com/ress059/ecu.git
-    GIT_TAG        53af55502d640aa64cd5a95a7205a0988de7462d # Latest master. TODO: Update to latest once ecu released.
+    GIT_TAG        6a0ce1bed30420d71e13470200d1914aaa57b7b3 # Latest master. TODO: Update to latest once ecu released.
 )
 FetchContent_MakeAvailable(ecu)
 
@@ -28,20 +28,22 @@ FetchContent_MakeAvailable(ecu)
 # Note this library is meant to be compiled with the target 
 # application's toolchain.
 add_library(cusb STATIC
-    ${CMAKE_CURRENT_LIST_DIR}/src/configuration.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/descriptor.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/endpoint.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/interface.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/request.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/string.c
+    # src/cusbd/
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/configuration.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/descriptor.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/endpoint.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
+
+    # src/cusbd/visitor/
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/visitor.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/w_total_length.c
 )
 
 # Example include in the Application would be #include "cusbd/device.h" 
 # in order to give larger apps some scope when including files.
 target_include_directories(cusb
     PUBLIC 
-        ${CMAKE_CURRENT_LIST_DIR}/inc 
+        ${CMAKE_CURRENT_LIST_DIR}/inc
 )
 
 # CUSB library requires at least C11.

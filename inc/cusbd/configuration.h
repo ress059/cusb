@@ -34,6 +34,13 @@
 /*------------------------------------------------------------*/
 
 /**
+ * @brief Value of bDescriptorType in a standard
+ * configuration descriptor.
+ */
+#define CUSBD_CONFIGURATION_BDESCRIPTORTYPE \
+    ((uint8_t)0x02)
+
+/**
  * @brief Helper macro that supplies bMaxPower parameter to
  * @ref CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(). This is the
  * bMaxPower field in the configuration descriptor, which
@@ -67,7 +74,7 @@
                                             bMaxPower_)             \
     {                                                               \
         .bLength = sizeof(struct cusbd_configuration_descriptor),   \
-        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_CONFIGURATION,     \
+        .bDescriptorType = CUSBD_CONFIGURATION_BDESCRIPTORTYPE,     \
         .wTotalLength = 0,                                          \
         .bNumInterfaces = 0,                                        \
         .bConfigurationValue = 0,                                   \
@@ -134,20 +141,15 @@ struct cusbd_configuration_descriptor
  */
 struct cusbd_configuration
 {
-    /// @brief Node in linked list.
-    struct ecu_dnode dnode;
+    /// @brief Inherit @ref cusbd_descriptor base class.
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
-    /// @brief Descriptor data. A copy is stored so the API can automatically
-    /// adjust bNumInterfaces, bConfigurationValue, etc as the device's
-    /// descriptor tree is updated.
-    /// @warning This struct is packed and will always be in little endian.
+    /// @brief Descriptor data. A copy is stored so the API can
+    /// automatically adjust it as the device is updated.
+    /// @warning This struct is packed and will always be in 
+    /// little endian.
     struct cusbd_configuration_descriptor descriptor;
-
-    /// @brief Interface descriptors attached to this configuration descriptor.
-    /// @warning Once the device is fully setup this must contain at 
-    /// least 1 interface since all configuration descriptors must have at
-    /// least one interface descriptor.
-    struct ecu_dlist interfaces;
 
     /// @brief String descriptors attached to this configuration 
     /// descriptor. Optional. Empty if unused.
@@ -165,7 +167,7 @@ extern "C" {
 #endif
 
 /**
- * @name CUSBD Configuration Constructors
+ * @name Constructor
  */
 /**@{*/
 /**
@@ -184,7 +186,7 @@ extern void cusbd_configuration_ctor(struct cusbd_configuration *me,
 /**@}*/
 
 /**
- * @name CUSBD Configuration Member Functions
+ * @name Member Functions
  */
 /**@{*/
 /**
@@ -232,31 +234,31 @@ extern void cusbd_configuration_add_string(struct cusbd_configuration *me,
  */
 extern bool cusbd_configuration_valid(const struct cusbd_configuration *me);
 
-/**
- * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
- * @brief Returns the number of interface descriptors attached to the
- * supplied configuration descriptor.
- * 
- * @param me Configuration descriptor to check.
- */
-extern size_t cusbd_configuration_interface_count(const struct cusbd_configuration *me);
+// /**
+//  * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
+//  * @brief Returns the number of interface descriptors attached to the
+//  * supplied configuration descriptor.
+//  * 
+//  * @param me Configuration descriptor to check.
+//  */
+// extern size_t cusbd_configuration_interface_count(const struct cusbd_configuration *me);
 
-/**
- * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
- * @brief Returns number of bytes in the entire configuration 
- * descriptor's subtree. I.e. sizeof(configuration descriptor) + 
- * sizeof(all interface descriptors) + sizeof(all alternate interface descriptors) + ...
- * The size of the descriptor's data is used, NOT the size of the 
- * CUSBD objects. The return value of this function is meant to be 
- * used to update wTotalLength in the configuration descriptor.
- * 
- * @warning This value is returned in native endianness, not
- * little endian.
- * 
- * @param me Configuration descriptor to check.
- */
-!!!! TODO Make return value uint16_t but use size_t in function to assert size <= UINT16_MAX
-extern size_t cusbd_configuration_size(const struct cusbd_configuration *me);
+// /**
+//  * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
+//  * @brief Returns number of bytes in the entire configuration 
+//  * descriptor's subtree. I.e. sizeof(configuration descriptor) + 
+//  * sizeof(all interface descriptors) + sizeof(all alternate interface descriptors) + ...
+//  * The size of the descriptor's data is used, NOT the size of the 
+//  * CUSBD objects. The return value of this function is meant to be 
+//  * used to update wTotalLength in the configuration descriptor.
+//  * 
+//  * @warning This value is returned in native endianness, not
+//  * little endian.
+//  * 
+//  * @param me Configuration descriptor to check.
+//  */
+// !!!! TODO Make return value uint16_t but use size_t in function to assert size <= UINT16_MAX
+// extern size_t cusbd_configuration_size(const struct cusbd_configuration *me);
 /**@}*/
 
 #ifdef __cplusplus

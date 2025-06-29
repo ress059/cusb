@@ -154,6 +154,7 @@ void cusbd_add_serial_number_string(struct cusbd *me,
 void cusbd_start(struct cusbd *me)
 {
     (void)me;
+
     // // !! idea is to limit the complexity of assigning bConfigurationValue, etc to
     // // just this function.
     // ECU_RUNTIME_ASSERT( (me) );
@@ -242,6 +243,140 @@ void cusbd_start(struct cusbd *me)
 //         // add all string descriptors to device->strings list.
 //         // assert all string descriptors are valid.
 //         // Update iConfiguration, iInterface, etc accordingly.
+// }
+
+// void cusbd_configuration_add_interface()
+// {
+//     bool inserted = false;
+//     uint8_t bInterfaceNumber = 1;   /* Starts at 1 since we are adding an interface. */
+//     size_t bNumInterfaces = 0;      /* Use size_t so we can assert if more than UINT8_MAX number of interfaces. */
+//     struct ecu_ntnode_child_iterator iter;
+//     struct cusbd_visitor_w_total_length visitor;
+
+//     /* Performing iteration is more reliable than simply incrementing bNumInterfaces. */
+//     ECU_NTNODE_CHILD_FOR_EACH(c, &iter, &me->base.ntnode)
+//     {
+//         struct cusbd_descriptor *base_node = ECU_NTNODE_GET_ENTRY(c, struct cusbd_descriptor, ntnode);
+//         if (cusbd_descriptor_type(base_node) == CUSBD_INTERFACE_BDESCRIPTORTYPE)
+//         {
+//             bNumInterfaces++;
+//             ECU_RUNTIME_ASSERT( (bNumInterfaces <= UINT8_MAX) );
+//             struct cusbd_interface *interface_node = (struct cusbd_interface *)base_node;
+
+//             if (!inserted)
+//             {
+//                 /* Find the first available bInterfaceNumber. */
+//                 if (bInterfaceNumber < interface_node->descriptor.bInterfaceNumber)
+//                 {
+//                     ecu_ntnode_insert_before(&interface_node->base.ntnode, &interface->base.ntnode);
+//                     inserted = true;
+//                 }
+//                 else
+//                 {
+//                     bInterfaceNumber++;
+//                 }
+//             }
+//         }
+//     }
+
+//     if (!inserted)
+//     {
+//         ecu_ntnode_push_back(&me->base.ntnode, &interface->base.ntnode);
+//     }
+
+//     interface->descriptor.bInterfaceNumber = bInterfaceNumber;
+//     me->descriptor.bNumInterfaces = (uint8_t)bNumInterfaces;
+//     cusbd_visitor_w_total_length_ctor(&visitor);
+//     cusbd_descriptor_caccept(&me->base, &visitor.base);
+//     me->descriptor.wTotalLength = cusbd_visitor_w_total_length_value_le(&visitor);
+// }
+
+
+// void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
+//                                              struct cusbd_alternate_interface *alternate_interface)
+// {
+//     uint16_t wTotalLength = 0;
+//     struct ecu_ntnode *parent = (struct ecu_ntnode *)0;
+//     struct cusbd_configuration *configuration = (struct cusbd_configuration *)0;
+//     struct cusbd_descriptor *base = (struct cusbd_descriptor *)0;
+//     struct cusbd_alternate_interface *alt_interface_node = (struct cusbd_alternate_interface *)0;
+//     struct ecu_ntnode_child_iterator iterator;
+//     ECU_RUNTIME_ASSERT( (me && alternate_interface) );
+//     ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(CUSBD_DESCRIPTOR_CONST_BASE_CAST(me))) );
+//     ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(CUSBD_DESCRIPTOR_CONST_BASE_CAST(alternate_interface))) );
+
+//     /* Update bInterfaceNumber. */
+//     alternate_interface->descriptor.bInterfaceNumber = me->descriptor.bInterfaceNumber;
+
+//     /* Update bAlternateSetting while inserting alternate interface into descriptor tree. 
+//     ECU library asserts if node is already within a tree. */
+//     alternate_interface->descriptor.bAlternateSetting = 1; /* Alternate settings start at 1. */
+//     ECU_NTNODE_CHILD_FOR_EACH(n, &iterator, &me->base.ntnode)
+//     {
+//         base = ECU_NTNODE_GET_ENTRY(n, struct cusbd_descriptor, ntnode);
+
+//         if (cusbd_descriptor_type(base) == CUSBD_DESCRIPTOR_TYPE_INTERFACE)
+//         {
+//             alt_interface_node = (struct cusbd_alternate_interface *)base;
+            
+//             if (alt_interface_node->descriptor.bAlternateSetting < alternate_interface->descriptor.bAlternateSetting)
+//             {
+//                 ecu_ntnode_insert_before(n, &alternate_interface->base.ntnode);
+//                 break;
+//             }
+//             else
+//             {
+//                 alternate_interface->descriptor.bAlternateSetting++;
+//             }
+//         }
+//     }
+
+//     if (!ecu_ntnode_in_subtree(&alternate_interface->base.ntnode))
+//     {
+//         ecu_ntnode_push_back(&me->base.ntnode, &alternate_interface->base.ntnode);
+//     }
+
+//     /* If the interface is attached to a configuration, update wTotalLength. */
+//     parent = ecu_ntnode_parent(&me->base.ntnode);
+//     if (parent)
+//     {
+//         base = ECU_NTNODE_GET_ENTRY(&parent, struct cusbd_descriptor, ntnode);
+//         ECU_RUNTIME_ASSERT( (cusbd_descriptor_type(&base) == CUSBD_DESCRIPTOR_TYPE_CONFIGURATION) );
+//         configuration = (struct cusbd_configuration *)base;
+//         wTotalLength = cusbd_configuration_size(configuration);
+//         configuration->descriptor.wTotalLength = ECU_CPU_TO_LE16_RUNTIME(wTotalLength);
+//     }
+
+//     /* iInterface is updated when device starts. */
+// }
+
+// void cusbd_interface_add_endpoint(struct cusbd_interface *me,
+//                                   struct cusbd_endpoint *endpoint)
+// {
+//     const struct cusbd_descriptor *base = (const struct cusbd_descriptor *)0;
+//     const struct cusbd_endpoint *e = (const struct cusbd_endpoint *)0;
+//     struct ecu_ntnode_child_citerator citerator;
+//     ECU_RUNTIME_ASSERT( (me && endpoint) );
+//     ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(CUSBD_DESCRIPTOR_CONST_BASE_CAST(me))) );
+//     ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(CUSBD_DESCRIPTOR_CONST_BASE_CAST(endpoint))) );
+
+//     /* Update bNumEndpoints. Also verify no endpoints are duplicated. I.e. cannot 
+//     have multiple endpoint1 INs attached to the same interface descriptor. */
+//     me->descriptor.bNumEndpoints = 0;
+//     ECU_NTNODE_CONST_CHILD_FOR_EACH(n, &citerator, &me->base.ntnode)
+//     {
+//         base = ECU_NTNODE_GET_CONST_ENTRY(n, struct cusbd_descriptor, ntnode);
+
+//         if (cusbd_descriptor_type(base) == CUSBD_DESCRIPTOR_TYPE_ENDPOINT)
+//         {
+//             e = (const struct cusb_endpoint *)base;
+//             ECU_RUNTIME_ASSERT( (e->descriptor.bEndpointAddress != endpoint->descriptor.bEndpointAddress) );
+//             me->descriptor.bNumEndpoints++;
+//         }
+//     }
+
+//     /* Add endpoint to descriptor tree. ECU library asserts if node already in tree. */
+//     ecu_ntnode_push_front(&me->base.ntnode, &endpoint->base.ntnode);
 // }
 
 void cusbd_dispatch(struct cusbd *me, const void *event)

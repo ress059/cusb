@@ -251,7 +251,8 @@ struct cusbd
         /// Called during initial device enumeration or when
         /// the device's configuration/interface changes due to a
         /// SET_CONFIGURATION() or SET_INTERFACE() request.
-        void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj);
+        // void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj);
+        void (*configure)(const struct cusbd_endpoint *endpoint, void *obj);
 
         /// @brief User-defined function that is called when data
         /// needs to be sent to the host. The supplied data must be
@@ -259,7 +260,8 @@ struct cusbd
         /// the number of bytes of data. id equals @ref CUSBD_ENDPOINT0_IN 
         /// for the control endpoint. For all other endpoints,
         /// id equals the endpoint's user-ID specified in @ref cusbd_endpoint_ctor().
-        void (*post)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj);
+        // void (*send)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj);
+        void (*send)(const struct cusbd_endpoint *endpoint, const void *data, size_t len, void *obj);
 
         /// @brief Optional object to pass to endpoint functions.
         /// Equals CUSBD_ENDPOINT_OBJ_UNUSED if unused.
@@ -302,12 +304,12 @@ extern "C" {
  * @param obj Optional object to supply to @p configure and @p post
  * functions. Supply @ref CUSBD_ENDPOINT_OBJ_UNUSED if unused.
  */
-extern void cusbd_ctor(struct cusbd *me,
-                       const struct cusbd_device_descriptor *descriptor,
-                       const struct cusbd_string_zero *string0,
-                       void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj),
-                       void (*post)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj),
-                       void *obj);
+// extern void cusbd_ctor(struct cusbd *me,
+//                        const struct cusbd_device_descriptor *descriptor,
+//                        const struct cusbd_string_zero *string0,
+//                        void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj),
+//                        void (*post)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj),
+//                        void *obj);
 /**@}*/
 
 /**

@@ -1,8 +1,8 @@
 /**
  * @file
  * @brief CUSBD descriptor base class. Used to provide a common
- * interface between many different types of descriptors. Also
- * contains common definitions that apply to all USB devices.
+ * interface between many different types of descriptors. Should 
+ * not be used directly by end user.
  * 
  * @author Ian Ress
  * @version 0.1
@@ -23,11 +23,9 @@
 #include <stdint.h>
 
 /* CUSB. */
-#include "cusbd/request.h"
+#include "cusbd/visitor/visitor.h"
 
 /* ECU. */
-#include "ecu/attributes.h"
-#include "ecu/object_id.h"
 #include "ecu/ntree.h"
 
 /*------------------------------------------------------------*/
@@ -60,7 +58,8 @@
     ((struct cusbd_descriptor *)(x_))
 
 /**
- * @brief Upcasts derived descriptor pointer into @ref cusbd_descriptor
+ * @brief Const-qualified version of @ref CUSBD_DESCRIPTOR_BASE_CAST().
+ * Upcasts derived descriptor pointer into @ref cusbd_descriptor
  * base class pointer. This macro encapsulates the cast
  * and allows derived descriptors to be passed into base 
  * class functions defined in this module.
@@ -81,86 +80,20 @@
  * Example usage:
  * @code{.c}
  * static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
- *      &valid_func, &wTotalLength_func, ....
+ *      &accept, ...
  * );
  * @endcode
  * 
+ * @param accept_ See @ref v_cusbd_descriptor_accept().
+ * @param caccept_ See @ref v_cusbd_descriptor_caccept().
  * @param valid_ See @ref v_cusbd_descriptor_valid().
- * @param wTotalLength_ See @ref v_cusbd_descriptor_wTotalLength().
- * @param default_state_in_ See @ref v_cusbd_descriptor_default_state_in().
- * @param default_state_out_ See @ref v_cusbd_descriptor_default_state_out().
- * @param address_state_in_ See @ref v_cusbd_descriptor_address_state_in().
- * @param address_state_out_ See @ref v_cusbd_descriptor_address_state_out().
- * @param configured_state_in_ See @ref v_cusbd_descriptor_configured_state_in().
- * @param configured_state_out_ See @ref v_cusbd_descriptor_configured_state_out().
  */
-#define CUSBD_DESCRIPTOR_VTABLE_CTOR(valid_,                                                                            \
-                                     wTotalLength_,                                                                     \
-                                     default_state_in_,                                                                 \
-                                     default_state_out_,                                                                \
-                                     address_state_in_,                                                                 \
-                                     address_state_out_,                                                                \
-                                     configured_state_in_,                                                              \
-                                     configured_state_out_)                                                             \
-    {                                                                                                                   \
-        .valid = (bool (*)(const struct cusbd_descriptor *))(valid_),                                                   \
-        .wTotalLength = (uint16_t (*)(const struct cusbd_descriptor *))(wTotalLength_),                                 \
-        .default_state_in = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                                   \
-                                                           const struct cusbd_request *,                                \
-                                                           void *buf,                                                   \
-                                                           size_t len))(default_state_in_),                             \
-        .default_state_out = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                                  \
-                                                            const struct cusbd_request *))(default_state_out_),         \
-        .address_state_in = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                                   \
-                                                           const struct cusbd_request *,                                \
-                                                           void *buf,                                                   \
-                                                           size_t len))(address_state_in_),                             \
-        .address_state_out = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                                  \
-                                                            const struct cusbd_request *))(address_state_out_),         \
-        .configured_state_in = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                                \
-                                                              const struct cusbd_request *,                             \
-                                                              void *buf,                                                \
-                                                              size_t len))(configured_state_in_),                       \
-        .configured_state_out = (enum cusbd_request_status (*)(struct cusbd_descriptor *,                               \
-                                                               const struct cusbd_request *))(configured_state_out_)    \
+#define CUSBD_DESCRIPTOR_VTABLE_CTOR(accept_, caccept_, valid_)                                     \
+    {                                                                                               \
+        .accept = (void(*)(struct cusbd_descriptor *, struct cusbd_visitor *))(accept_),            \
+        .caccept = (void(*)(const struct cusbd_descriptor *, struct cusbd_cvisitor *))(caccept_),   \
+        .valid = (bool(*)(const struct cusbd_descriptor *))(valid_)                                 \
     }
-
-/*------------------------------------------------------------*/
-/*------------------------ COMMON TYPES ----------------------*/
-/*------------------------------------------------------------*/
-
-// /**
-//  * @brief USB device states, adapted for use in
-//  * modeled USB state machine. This value is used
-//  * when certain actions depend on which state
-//  * the device is in. I.e. standard requests.
-//  */
-// enum cusbd_state
-// {
-//     CUSBD_STATE_IDLE,           /**<! USB device idle. Connection between host not yet established. */
-//     CUSBD_STATE_DEFAULT,        /**<! USB device is in default state. */
-//     CUSBD_STATE_ADDRESS,        /**<! USB device is in address state. */
-//     CUSBD_STATE_CONFIGURED,     /**<! USB device is in configured state. */
-//     CUSBD_STATE_SUSPENDED,      /**<! USB device is in suspended state. */
-//     /************************/
-//     CUSBD_STATE_COUNT           /**<! Total number of states. */
-// };
-
-/**
- * @brief Values of bDescriptorType in standard descriptors
- * common across all USB devices.
- */
-enum cusbd_descriptor_type
-{
-    CUSBD_DESCRIPTOR_TYPE_DEVICE = 0x01,
-    CUSBD_DESCRIPTOR_TYPE_CONFIGURATION = 0x02,
-    CUSBD_DESCRIPTOR_TYPE_STRING = 0x03,
-    CUSBD_DESCRIPTOR_TYPE_INTERFACE = 0x04,
-    CUSBD_DESCRIPTOR_TYPE_ENDPOINT = 0x05,
-    CUSBD_DESCRIPTOR_TYPE_DEVICE_QUALIFIER = 0x06,
-    CUSBD_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION = 0x07,
-    CUSBD_DESCRIPTOR_TYPE_INTERFACE_POWER = 0x08
-};
 
 /*------------------------------------------------------------*/
 /*----------------- CUSBD DESCRIPTOR BASE CLASS --------------*/
@@ -172,44 +105,20 @@ struct cusbd_descriptor;
 /**
  * @brief Virtual table for @ref cusbd_descriptor base
  * class.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
  */
 struct cusbd_descriptor_vtable
 {
+    /// @brief See @ref v_cusbd_descriptor_accept().
+    void (*accept)(struct cusbd_descriptor *me, struct cusbd_visitor *visitor);
+
+    /// @brief See @ref v_cusbd_descriptor_caccept().
+    void (*caccept)(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor);
+
     /// @brief See @ref v_cusbd_descriptor_valid().
-    bool (*const valid)(const struct cusbd_descriptor *me);
-
-    /// @brief See @ref v_cusbd_descriptor_wTotalLength().
-    uint16_t (*const wTotalLength)(const struct cusbd_descriptor *me);
-
-    /// @brief See @ref v_cusbd_descriptor_default_state_in().
-    enum cusbd_request_status (*const default_state_in)(struct cusbd_descriptor *me,
-                                                        const struct cusbd_request *request,
-                                                        void *buf,
-                                                        size_t len);
-
-    /// @brief See @ref v_cusbd_descriptor_default_state_out().
-    enum cusbd_request_status (*const default_state_out)(struct cusbd_descriptor *me,
-                                                         const struct cusbd_request *request);
-
-    /// @brief See @ref v_cusbd_descriptor_address_state_in().
-    enum cusbd_request_status (*const address_state_in)(struct cusbd_descriptor *me,
-                                                        const struct cusbd_request *request,
-                                                        void *buf,
-                                                        size_t len);
-
-    /// @brief See @ref v_cusbd_descriptor_address_state_out().
-    enum cusbd_request_status (*const address_state_out)(struct cusbd_descriptor *me,
-                                                         const struct cusbd_request *request);
-
-    /// @brief See @ref v_cusbd_descriptor_configured_state_in().
-    enum cusbd_request_status (*const configured_state_in)(struct cusbd_descriptor *me,
-                                                           const struct cusbd_request *request,
-                                                           void *buf,
-                                                           size_t len);
-
-    /// @brief See @ref v_cusbd_descriptor_configured_state_out().
-    enum cusbd_request_status (*const configured_state_out)(struct cusbd_descriptor *me,
-                                                            const struct cusbd_request *request);
+    bool (*valid)(const struct cusbd_descriptor *me);
 };
 
 /**
@@ -217,15 +126,18 @@ struct cusbd_descriptor_vtable
  * a common interface between many types of descriptors.
  * All concrete descriptors (device, configuration, 
  * interface, etc.) inherit this base class.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
  */
 struct cusbd_descriptor
 {
+    /// @brief Virtual functions.
+    const struct cusbd_descriptor_vtable *vptr;
+
     /// @brief N-ary tree node. All descriptors besides strings
     /// represented as nodes in a tree.
     struct ecu_ntnode ntnode;
-
-    /// @brief Virtual functions.
-    const struct cusbd_descriptor_vtable *vptr;
 };
 
 /*------------------------------------------------------------*/
@@ -250,7 +162,7 @@ extern "C" {
  * @param me Descriptor to construct.
  * @param bDescriptorType Value of bDescriptorType.
  */
-extern void cusbd_descriptor_ctor(struct cusbd_descriptor *me, ecu_object_id bDescriptorType);
+extern void cusbd_descriptor_ctor(struct cusbd_descriptor *me, uint8_t bDescriptorType);
 /**@}*/
 
 /**
@@ -258,161 +170,94 @@ extern void cusbd_descriptor_ctor(struct cusbd_descriptor *me, ecu_object_id bDe
  */
 /**@{*/
 /**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been constructed 
+ * and inherits @ref cusbd_visitor.
+ * @brief Accepts concrete visitor on @p me, and on all descriptors
+ * in @p me's subtree.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ */
+extern void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *visitor);
+
+/**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been constructed 
+ * and inherits @ref cusbd_cvisitor.
+ * @brief Const-qualified version of @ref cusbd_descriptor_accept().
+ * Accepts concrete visitor on @p me, and on all descriptors
+ * in @p me's subtree.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ */
+extern void cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor);
+
+/**
  * @pre @p me previously constructed via @ref cusbd_descriptor_ctor().
- * @brief Returns bDescriptorType assigned in @ref cusbd_descriptor_ctor().
+ * @brief Returns descriptor's bDescriptorType.
  * 
  * @param me Descriptor to check.
  */
-extern ecu_object_id cusbd_descriptor_type(const struct cusbd_descriptor *me);
+extern uint8_t cusbd_descriptor_type(const struct cusbd_descriptor *me);
 
 /**
- * @pre @p me is a derived class that has been constructed and inherits @ref cusbd_descriptor.
- * @brief Returns true if the supplied descriptor contains valid data 
- * and was properly constructed. False otherwise.
- * 
- * @warning Virtual call.
+ * @pre @p me previously constructed via @ref cusbd_descriptor_ctor().
+ * @brief Returns true if the supplied descriptor contains
+ * valid data and was properly constructed via @ref cusbd_descriptor_ctor(). 
+ * False otherwise.
  * 
  * @param me Descriptor to check.
+ */
+extern bool cusbd_descriptor_valid(const struct cusbd_descriptor *me);
+
+/**
+ * @pre @p me is a derived class that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been 
+ * constructed and inherits @ref cusbd_visitor.
+ * @brief Accepts concrete visitor on a single descriptor, @p me.
+ * 
+ * @warning Virtual call. Must be overridden.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ */
+extern void v_cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *visitor);
+
+/**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been constructed 
+ * and inherits @ref cusbd_cvisitor.
+ * @brief Const-qualified version of @ref v_cusbd_descriptor_accept(). 
+ * Accepts concrete visitor on a single descriptor, @p me.
+ * 
+ * @warning Virtual call. Must be overridden.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ */
+extern void v_cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor);
+
+/**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @brief Returns true if the supplied descriptor contains
+ * valid data and was properly constructed. False otherwise.
+ * 
+ * @warning Virtual call. Must be overridden.
+ * 
+ * @param me Concrete descriptor to check.
  */
 extern bool v_cusbd_descriptor_valid(const struct cusbd_descriptor *me);
-
-/**
- * @pre @p me is a derived class that has been constructed and inherits @ref cusbd_descriptor.
- * @brief Returns descriptor's size to update configuration
- * descriptor's wTotalLength field. Returns 0 if descriptor
- * not relevant to wTotalLength. Value returned is always in
- * native endianness, not little endian.
- * 
- * @warning Virtual call.
- * 
- * @param me Descriptor to check.
- */
-extern uint16_t v_cusbd_descriptor_wTotalLength(const struct cusbd_descriptor *me);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device IN request when the 
- * device is in the default state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @param buf Data that needs to be sent back to the host is copied
- * into this buffer.
- * @param len Number of bytes available in @p buf. This must always
- * be >= number of bytes of data sent back to host.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_default_state_in(struct cusbd_descriptor *me,
-                                                                     const struct cusbd_request *request,
-                                                                     void *buf,
-                                                                     size_t len);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device OUT request when the 
- * device is in the default state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_default_state_out(struct cusbd_descriptor *me,
-                                                                      const struct cusbd_request *request);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device IN request when the 
- * device is in the address state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @param buf Data that needs to be sent back to the host is copied
- * into this buffer.
- * @param len Number of bytes available in @p buf. This must always
- * be >= number of bytes of data sent back to host.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_address_state_in(struct cusbd_descriptor *me,
-                                                                     const struct cusbd_request *request,
-                                                                     void *buf,
-                                                                     size_t len);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device OUT request when the 
- * device is in the address state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_address_state_out(struct cusbd_descriptor *me,
-                                                                      const struct cusbd_request *request);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device IN request when the 
- * device is in the configured state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @param buf Data that needs to be sent back to the host is copied
- * into this buffer.
- * @param len Number of bytes available in @p buf. This must always
- * be >= number of bytes of data sent back to host.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_configured_state_in(struct cusbd_descriptor *me,
-                                                                        const struct cusbd_request *request,
-                                                                        void *buf,
-                                                                        size_t len);
-
-/**
- * @pre @p me is a derived class that has been constructed and 
- * inherits @ref cusbd_descriptor.
- * @brief Processes the supplied USB device OUT request when the 
- * device is in the configured state.
- * 
- * @warning Virtual call.
- * 
- * @param me Derived descriptor (device, configuration, interface, etc)
- * to process request.
- * @param request The request. Contents will always be in little 
- * endian, not native endianness.
- * @return See @ref cusbd_request_status enumeration.
- */
-extern enum cusbd_request_status v_cusbd_descriptor_configured_state_out(struct cusbd_descriptor *me,
-                                                                         const struct cusbd_request *request);
-
-
-!!!!! TODO Thinking of having cusbd_descriptor_push_front(), cusbd_descriptor_push_back(), etc.
-!!!!! User responsible for correctly populating bNumEndpoints, bNumInterfaces, wTotalLength etc.
-!!!!! If this is the case descriptor objects can take in descriptors by (const *).
 /**@}*/
 
 #ifdef __cplusplus
