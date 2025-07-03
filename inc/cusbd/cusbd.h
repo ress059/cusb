@@ -19,7 +19,7 @@
 /* STDLib. */
 #include <stdint.h>
 
-/* CUSBD. */
+/* CUSB. */
 #include "cusbd/configuration.h"
 #include "cusbd/descriptor.h"
 #include "cusbd/endpoint.h"
@@ -117,11 +117,11 @@
  */
 enum cusbd_string_id
 {
-    CUSBD_MANUFACTURER_STRING_ID = 1,   /**<! ID given to all manufacturer strings. */
-    CUSBD_PRODUCT_STRING_ID,            /**<! ID given to all product strings. */
-    CUSBD_SERIAL_NUMBER_STRING_ID,      /**<! ID given to all serial number strings. */
+    CUSBD_MANUFACTURER_STRING_ID = 1,   /**< ID given to all manufacturer strings. */
+    CUSBD_PRODUCT_STRING_ID,            /**< ID given to all product strings. */
+    CUSBD_SERIAL_NUMBER_STRING_ID,      /**< ID given to all serial number strings. */
     /*********************************/
-    CUSBD_USER_STRING_ID_BEGIN          /**<! Strings attached to descriptors start at this ID. */
+    CUSBD_USER_STRING_ID_BEGIN          /**< Strings attached to descriptors start at this ID. */
 };
 
 /**

@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <string.h> /* memcpy. */
 
-/* CUSBD. */
+/* CUSB. */
 #include "cusbd/configuration.h"
 #include "cusbd/interface.h"
 #include "cusbd/string.h" // TODO: C11 dependency!

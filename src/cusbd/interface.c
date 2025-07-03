@@ -19,6 +19,8 @@
 #include <string.h> /* memcpy. */
 
 /* CUSB. */
+#include "cusbd/endpoint.h"
+#include "cusbd/string.h"
 #include "cusbd/visitor/visitor.h"
 
 /* ECU. */
@@ -79,7 +81,7 @@ static void o_alternate_interface_caccept(const struct cusbd_alternate_interface
                                           struct cusbd_cvisitor *visitor);
 
 /*------------------------------------------------------------*/
-/*----------- STATIC FUNCTION DEFINITIONS - COMMON -----------*/
+/*---------- STATIC FUNCTION DEFINITIONS - INTERFACE ---------*/
 /*------------------------------------------------------------*/
 
 static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *descriptor)
@@ -100,8 +102,22 @@ static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *
     return status;
 }
 
+static void o_interface_accept(struct cusbd_interface *me, struct cusbd_visitor *visitor)
+{
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
+    ECU_RUNTIME_ASSERT( (me && visitor) );
+    v_cusbd_visitor_visit_interface(visitor, me);
+}
+
+static void o_interface_caccept(const struct cusbd_interface *me, struct cusbd_cvisitor *visitor)
+{
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
+    ECU_RUNTIME_ASSERT( (me && visitor) );
+    v_cusbd_cvisitor_visit_interface(visitor, me);
+}
+
 /*------------------------------------------------------------*/
-/*---------- STATIC FUNCTION DEFINITIONS - INTERFACE ---------*/
+/*----- STATIC FUNCTION DEFINITIONS - ALTERNATE INTERFACE ----*/
 /*------------------------------------------------------------*/
 
 static bool alternate_interface_descriptor_valid(const struct cusbd_interface_descriptor *descriptor)
@@ -122,28 +138,10 @@ static bool alternate_interface_descriptor_valid(const struct cusbd_interface_de
     return status;
 }
 
-static void o_interface_accept(struct cusbd_interface *me, struct cusbd_visitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_interface(visitor, me);
-}
-
-static void o_interface_caccept(const struct cusbd_interface *me, struct cusbd_cvisitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_interface(visitor, me);
-}
-
-/*------------------------------------------------------------*/
-/*----- STATIC FUNCTION DEFINITIONS - ALTERNATE INTERFACE ----*/
-/*------------------------------------------------------------*/
-
 static void o_alternate_interface_accept(struct cusbd_alternate_interface *me, 
                                          struct cusbd_visitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_accept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_visitor_visit_alternate_interface(visitor, me);
 }
@@ -151,7 +149,7 @@ static void o_alternate_interface_accept(struct cusbd_alternate_interface *me,
 static void o_alternate_interface_caccept(const struct cusbd_alternate_interface *me, 
                                           struct cusbd_cvisitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_caccept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_cvisitor_visit_alternate_interface(visitor, me);
 }

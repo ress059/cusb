@@ -19,7 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSBD. */
+/* CUSB. */
 #include "cusbd/descriptor.h"
 
 /* ECU. */
@@ -81,7 +81,7 @@
 /*------------------------------------------------------------*/
 /*----------------------- CUSBD ENDPOINT ---------------------*/
 /*------------------------------------------------------------*/
-
+#pragma message("TODO: Update descriptions!!")
 // /**
 //  * @brief Type given to endpoint ID (@ref cusbd_endpoint.id).
 //  * This allows the library to implicitly typecast between
@@ -109,10 +109,10 @@ enum cusbd_endpoint_direction
  */
 enum cusbd_endpoint_transfer_type
 {
-    CUSBD_ENDPOINT_TRANSFER_TYPE_CONTROL,       /**<! [1:0] = 00. Endpoint0. Control endpoint. */
-    CUSBD_ENDPOINT_TRANSFER_TYPE_ISOCHRONOUS,   /**<! [1:0] = 01. Endpoint used for isochronous transfers. */
-    CUSBD_ENDPOINT_TRANSFER_TYPE_BULK,          /**<! [1:0] = 10. Endpoint used for bulk transfers. */
-    CUSBD_ENDPOINT_TRANSFER_TYPE_INTERRUPT      /**<! [1:0] = 11. Endpoint used for interrupt transfers. */
+    CUSBD_ENDPOINT_TRANSFER_TYPE_CONTROL,       /**< [1:0] = 00. Endpoint0. Control endpoint. */
+    CUSBD_ENDPOINT_TRANSFER_TYPE_ISOCHRONOUS,   /**< [1:0] = 01. Endpoint used for isochronous transfers. */
+    CUSBD_ENDPOINT_TRANSFER_TYPE_BULK,          /**< [1:0] = 10. Endpoint used for bulk transfers. */
+    CUSBD_ENDPOINT_TRANSFER_TYPE_INTERRUPT      /**< [1:0] = 11. Endpoint used for interrupt transfers. */
 };
 
 /**
@@ -148,10 +148,10 @@ enum cusbd_endpoint_usage_type
 //  */
 // enum cusbd_endpoint_reserved_ids
 // {
-//     CUSBD_ENDPOINT0_OUT_ID = -2,     /**<! RESERVED. ID assigned to control endpoint OUT. */
-//     CUSBD_ENDPOINT0_IN_ID = -1,      /**<! RESERVED. ID assigned to control endpoint IN. */
+//     CUSBD_ENDPOINT0_OUT_ID = -2,     /**< RESERVED. ID assigned to control endpoint OUT. */
+//     CUSBD_ENDPOINT0_IN_ID = -1,      /**< RESERVED. ID assigned to control endpoint IN. */
 //     /***************************/
-//     CUSBD_ENDPOINT_USER_ID_BEGIN     /**<! Start of user-specified endpoint IDs. Will always be 0. */
+//     CUSBD_ENDPOINT_USER_ID_BEGIN     /**< Start of user-specified endpoint IDs. Will always be 0. */
 // };
 
 /**
@@ -254,9 +254,8 @@ extern enum cusbd_endpoint_transfer_type cusbd_endpoint_transfer_type(const stru
 extern enum cusbd_endpoint_usage_type cusbd_endpoint_usage_type(const struct cusbd_endpoint *me);
 
 /**
- * @pre @p me previously constructed via @ref cusbd_endpoint().
  * @brief Returns true if the supplied endpoint descriptor contains
- * valid data and was properly constructed via @ref cusbd_endpoint(). 
+ * valid data and was properly constructed via @ref cusbd_endpoint_ctor(). 
  * False otherwise.
  * 
  * @param me Interface descriptor to check.

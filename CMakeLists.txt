@@ -32,9 +32,11 @@ add_library(cusb STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/configuration.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/descriptor.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/endpoint.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/event.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
 
     # src/cusbd/visitor/
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/request.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/visitor.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/w_total_length.c
 )
@@ -44,6 +46,9 @@ add_library(cusb STATIC
 target_include_directories(cusb
     PUBLIC 
         ${CMAKE_CURRENT_LIST_DIR}/inc
+
+    PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
 # CUSB library requires at least C11.

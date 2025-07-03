@@ -20,10 +20,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSBD. */
+/* CUSB. */
 #include "cusbd/descriptor.h"
-#include "cusbd/interface.h"
-#include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
@@ -86,6 +84,10 @@
 /*------------------------------------------------------------*/
 /*--------------------- CUSBD CONFIGURATION ------------------*/
 /*------------------------------------------------------------*/
+
+/* Forward declarations. */
+struct cusbd_interface;
+struct cusbd_string;
 
 /**
  * @brief Data in a standard configuration descriptor.
@@ -225,7 +227,6 @@ extern void cusbd_configuration_add_string(struct cusbd_configuration *me,
                                            struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
  * @brief Returns true if the supplied configuration descriptor contains
  * valid data and was properly constructed via @ref cusbd_configuration_ctor(). 
  * False otherwise.
@@ -234,6 +235,7 @@ extern void cusbd_configuration_add_string(struct cusbd_configuration *me,
  */
 extern bool cusbd_configuration_valid(const struct cusbd_configuration *me);
 
+#pragma message("TODO: Cleanup")
 // /**
 //  * @pre @p me previously constructed via @ref cusbd_configuration_ctor().
 //  * @brief Returns the number of interface descriptors attached to the

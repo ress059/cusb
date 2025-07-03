@@ -8,6 +8,9 @@
  * @copyright Copyright (c) 2025
  */
 
+#pragma message("TODO: Call cusb functions. Think some stuff currently should cause linker errors but it's not \
+    due to garbage collection. I.e. configuration.c calls cusbd_string_valid() but string.c not even being compiled.")
+
 /*------------------------------------------------------------*/
 /*--------------------------- MAIN ---------------------------*/
 /*------------------------------------------------------------*/

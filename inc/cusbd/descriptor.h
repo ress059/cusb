@@ -22,9 +22,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusbd/visitor/visitor.h"
-
 /* ECU. */
 #include "ecu/ntree.h"
 
@@ -101,6 +98,8 @@
 
 /* Forward declare for vtable. */
 struct cusbd_descriptor;
+struct cusbd_visitor;
+struct cusbd_cvisitor;
 
 /**
  * @brief Virtual table for @ref cusbd_descriptor base

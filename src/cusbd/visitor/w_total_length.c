@@ -64,6 +64,7 @@ static void o_visit_configuration(struct cusbd_visitor_w_total_length *me, const
 {
     ECU_RUNTIME_ASSERT( (me && node) );
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
+    /* Do not reset cound by doing me->wTotalLength = ... since we do not know the order of iteration. */
     me->wTotalLength += sizeof(struct cusbd_configuration_descriptor);
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
 }
@@ -97,7 +98,7 @@ static void o_visit_endpoint(struct cusbd_visitor_w_total_length *me, const stru
 /*------------------------------------------------------------*/
 
 ECU_STATIC_ASSERT( (CUSBD_VISITOR_IS_BASEOF(base, struct cusbd_visitor_w_total_length)),
-                    "cusbd_visitor_w_total_length must inherit cusbd_visitor." );
+                    "cusbd_visitor_w_total_length must inherit cusbd_cvisitor." );
 
 /*------------------------------------------------------------*/
 /*------------------- VISITOR MEMBER FUNCTIONS ---------------*/
@@ -106,6 +107,7 @@ ECU_STATIC_ASSERT( (CUSBD_VISITOR_IS_BASEOF(base, struct cusbd_visitor_w_total_l
 void cusbd_visitor_w_total_length_ctor(struct cusbd_visitor_w_total_length *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
+
     static const struct cusbd_cvisitor_vtable vtable = CUSBD_CVISITOR_VTABLE_CTOR(
         &o_visit_device,
         &o_visit_configuration,
@@ -115,7 +117,7 @@ void cusbd_visitor_w_total_length_ctor(struct cusbd_visitor_w_total_length *me)
     );
 
     cusbd_cvisitor_ctor(&me->base);
-    me->base.vptr = &vtable;
+    me->base.vptr = &vtable; /* MUST be AFTER cusbd_cvisitor_ctor(). */
     me->wTotalLength = 0;
 }
 

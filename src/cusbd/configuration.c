@@ -19,6 +19,8 @@
 #include <string.h> /* memcpy. */
 
 /* CUSB. */
+#include "cusbd/interface.h"
+#include "cusbd/string.h"
 #include "cusbd/visitor/visitor.h"
 
 /* ECU. */
@@ -76,14 +78,14 @@ static bool configuration_descriptor_valid(const struct cusbd_configuration_desc
 
 static void o_accept(struct cusbd_configuration *me, struct cusbd_visitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_accept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_visitor_visit_configuration(visitor, me);
 }
 
 static void o_caccept(const struct cusbd_configuration *me, struct cusbd_cvisitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_caccept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_cvisitor_visit_configuration(visitor, me);
 }
@@ -106,7 +108,7 @@ void cusbd_configuration_ctor(struct cusbd_configuration *me,
                               const struct cusbd_configuration_descriptor *descriptor)
 {
     ECU_RUNTIME_ASSERT( (me && descriptor) );
-    ECU_RUNTIME_ASSERT( (configuration_descriptor_valid(&me->descriptor)) );
+    ECU_RUNTIME_ASSERT( (configuration_descriptor_valid(descriptor)) );
 
     static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
         &o_accept, 
@@ -114,7 +116,7 @@ void cusbd_configuration_ctor(struct cusbd_configuration *me,
         &cusbd_configuration_valid
     );
 
-    cusbd_descriptor_ctor(&me->base, (ecu_object_id)descriptor->bDescriptorType);
+    cusbd_descriptor_ctor(&me->base, CUSBD_CONFIGURATION_BDESCRIPTORTYPE);
     me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_configuration_descriptor));
     ecu_dlist_ctor(&me->strings);

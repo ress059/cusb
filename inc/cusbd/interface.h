@@ -20,10 +20,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSBD. */
+/* CUSB. */
 #include "cusbd/descriptor.h"
-#include "cusbd/endpoint.h"
-#include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
@@ -102,6 +100,10 @@
 /*------------------------------------------------------------*/
 /*----------------------- CUSBD INTERFACE --------------------*/
 /*------------------------------------------------------------*/
+
+/* Forward declarations. */
+struct cusbd_endpoint;
+struct cusbd_string;
 
 /**
  * @brief Data in a standard interface descriptor.
@@ -294,7 +296,6 @@ extern void cusbd_interface_add_string(struct cusbd_interface *me,
                                        struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusbd_interface_ctor().
  * @brief Returns true if the supplied interface descriptor contains
  * valid data and was properly constructed via @ref cusbd_interface_ctor(). 
  * False otherwise.
@@ -370,7 +371,6 @@ extern void cusbd_alternate_interface_add_string(struct cusbd_alternate_interfac
                                                  struct cusbd_string *string);
 
 /**
- * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
  * @brief Returns true if the supplied alternate interface descriptor contains
  * valid data and was properly constructed via @ref cusbd_alternate_interface_ctor(). 
  * False otherwise.

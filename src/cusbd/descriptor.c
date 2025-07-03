@@ -15,6 +15,9 @@
 /* Translation unit. */
 #include "cusbd/descriptor.h"
 
+/* CUSB. */
+#include "visitor/visitor.h"
+
 /* ECU. */
 #include "ecu/asserter.h"
 
@@ -39,15 +42,14 @@ void cusbd_descriptor_ctor(struct cusbd_descriptor *me, uint8_t bDescriptorType)
 void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *visitor)
 {
     ECU_RUNTIME_ASSERT( (me && visitor) );
-    ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(me)) );
     struct ecu_ntnode_postorder_iterator iter;
     struct cusbd_descriptor *descriptor = (struct cusbd_descriptor *)0;
 
     /* Use a postorder iteration to allow safe removal of nodes. */
     ECU_NTNODE_POSTORDER_FOR_EACH(n, &iter, &me->ntnode)
     {
+        /* Do not assert valid() since this is already done in v_cusbd_descriptor_accept(). */
         descriptor = ECU_NTNODE_GET_ENTRY(n, struct cusbd_descriptor, ntnode);
-        ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(descriptor)) );
         v_cusbd_descriptor_accept(descriptor, visitor);
     }
 }
@@ -55,15 +57,14 @@ void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *
 void cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor)
 {
     ECU_RUNTIME_ASSERT( (me && visitor) );
-    ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(me)) );
     struct ecu_ntnode_postorder_citerator citer;
     const struct cusbd_descriptor *descriptor = (const struct cusbd_descriptor *)0;
 
     /* Use a postorder iteration to remain consistence with cusbd_descriptor_accept(). */
     ECU_NTNODE_CONST_POSTORDER_FOR_EACH(n, &citer, &me->ntnode)
     {
+        /* Do not assert valid() since this is already done in v_cusbd_descriptor_caccept(). */
         descriptor = ECU_NTNODE_GET_CONST_ENTRY(n, struct cusbd_descriptor, ntnode);
-        ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(descriptor)) );
         v_cusbd_descriptor_caccept(descriptor, visitor);
     }
 }
@@ -85,10 +86,10 @@ bool cusbd_descriptor_valid(const struct cusbd_descriptor *me)
 
 void v_cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_accept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     ECU_RUNTIME_ASSERT( (me->vptr) );
     ECU_RUNTIME_ASSERT( (me->vptr->accept) );
+    ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(me)) );
     (*me->vptr->accept)(me, visitor);
 }
 
@@ -98,6 +99,7 @@ void v_cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_
     ECU_RUNTIME_ASSERT( (me && visitor) );
     ECU_RUNTIME_ASSERT( (me->vptr) );
     ECU_RUNTIME_ASSERT( (me->vptr->caccept) );
+    ECU_RUNTIME_ASSERT( (v_cusbd_descriptor_valid(me)) );
     (*me->vptr->caccept)(me, visitor);
 }
 

@@ -167,14 +167,14 @@ static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *de
 
 static void o_accept(struct cusbd_endpoint *me, struct cusbd_visitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_accept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_visitor_visit_endpoint(visitor, me);
 }
 
 static void o_caccept(const struct cusbd_endpoint *me, struct cusbd_cvisitor *visitor)
 {
-    /* Do not assert valid() since that is centralized in the cusbd_descriptor_caccept() function. */
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && visitor) );
     v_cusbd_cvisitor_visit_endpoint(visitor, me);
 }

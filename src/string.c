@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Object representing a string descriptor.
+ * @brief See @ref string.h.
  * 
  * @author Ian Ress
  * @version 0.1
