@@ -79,6 +79,13 @@ ECU_STATIC_ASSERT( (CUSBD_EVENT_IS_BASEOF(base, struct cusbd_setup_packet_rx_eve
 /*----------------------- PUBLIC FUNCTIONS -------------------*/
 /*------------------------------------------------------------*/
 
+enum cusbd_event_id cusbd_event_id(const struct cusbd_event *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (cusbd_event_valid(me)) );
+    return (me->id);
+}
+
 bool cusbd_event_valid(const struct cusbd_event *me)
 {
     /* This should be enough to verify any derived event was properly constructed

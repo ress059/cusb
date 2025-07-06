@@ -50,6 +50,10 @@ struct cusbd_visitor_w_total_length
 /*------------------- VISITOR MEMBER FUNCTIONS ---------------*/
 /*------------------------------------------------------------*/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @name Constructor
  */
@@ -85,5 +89,9 @@ extern uint16_t cusbd_visitor_w_total_length_value(const struct cusbd_visitor_w_
  */
 extern uint16_t cusbd_visitor_w_total_length_value_le(const struct cusbd_visitor_w_total_length *me);
 /**@}*/
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CUSBD_VISITOR_W_TOTAL_LENGTH_H_ */

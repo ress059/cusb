@@ -36,12 +36,14 @@ add_library(cusb STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
 
     # src/cusbd/visitor/
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/clear_feature.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/get_configuration.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/request.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/visitor.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/w_total_length.c
 )
 
-# Example include in the Application would be #include "cusbd/device.h" 
+# Example include in the Application would be #include "cusbd/cusbd.h" 
 # in order to give larger apps some scope when including files.
 target_include_directories(cusb
     PUBLIC 
@@ -77,7 +79,7 @@ target_compile_options(cusb_warning_options
         $<$<AND:$<CONFIG:Debug>,$<OR:$<COMPILE_LANG_AND_ID:C,GNU>,$<COMPILE_LANG_AND_ID:CXX,GNU>>>:-g3>
 )
 
-# Note how CUSB-specific warning flags are private so it is not propogated
+# Note how CUSB-specific warning flags are private so it is not propagated
 # to the user's application. However our internal tests can still use 
 # cusb_warning_options target to get all of the warning flags.
 target_link_libraries(cusb 

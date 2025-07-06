@@ -25,6 +25,19 @@
 #include "cusbd/event.h"
 
 /*------------------------------------------------------------*/
+/*---------------------- DEFINES AND MACROS ------------------*/
+/*------------------------------------------------------------*/
+
+/// @brief Feature selector value.
+#define CUSBD_FEATURE_DEVICE_REMOTE_WAKEUP (1U)
+
+/// @brief Feature selector value.
+#define CUSBD_FEATURE_ENDPOINT_HALT (0U)
+
+/// @brief Feature selector value.
+#define CUSBD_FEATURE_TEST_MODE (2U)
+
+/*------------------------------------------------------------*/
 /*----------------------- CUSBD REQUEST ----------------------*/
 /*------------------------------------------------------------*/
 
@@ -60,6 +73,8 @@ enum cusbd_request_recipient
  */
 enum cusbd_request_state
 {
+    CUSBD_REQUEST_STATE_RESERVED,           /**< Default initialiation value to detect if request was constructed or not. Default case asserts. */
+    /***********************************/
     CUSBD_REQUEST_STATE_DEFAULT_STATE,      /**< Device is in default state. */
     CUSBD_REQUEST_STATE_ADDRESS_STATE,      /**< Device is in address state. */
     CUSBD_REQUEST_STATE_CONFIGURED_STATE,   /**< Device is in configured state. */
@@ -186,7 +201,10 @@ extern "C" {
  * @pre Memory already allocated for @p me.
  * @pre @p e previously constructed via @ref cusbd_setup_packet_rx_event_ctor().
  * @brief Creates a translated setup packet for easier use
- * by request-specific visitors.
+ * by request-specific visitors. This translation protects the
+ * library from any changes to the USB standard, etc. 
+ * Changepoint would be limited to only this function as opposed to
+ * throughout the library code.
  * 
  * @param me Setup packet translation to construct.
  * @param e Setup packet event received by user. This is an event
@@ -218,7 +236,7 @@ extern enum cusbd_request_direction cusbd_request_direction(const struct cusbd_r
  * @brief Returns true if the request has been processed.
  * False otherwise. The device implementation can poll this
  * function to know when the request visitor can stop being
- * propogated within the descriptor tree. Once the request
+ * propagated within the descriptor tree. Once the request
  * has been processed the implementation should call @ref cusbd_request_status()
  * to know how to respond to the host.
  * 
@@ -282,6 +300,35 @@ extern enum cusbd_request_type cusbd_request_type(const struct cusbd_request *me
  * @param me Request to check.
  */
 extern enum cusbd_request_value cusbd_request_value(const struct cusbd_request *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_request_ctor().
+ * @brief Return wIndex field of the setup packet. Value returned
+ * in native endianness for easier use, not little endian.
+ * 
+ * @param me Request to check.
+ */
+extern uint16_t cusbd_request_w_index(const struct cusbd_request *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_request_ctor().
+ * @brief Return wLndex field of the setup packet. Value returned
+ * in native endianness for easier use, not little endian.
+ * 
+ * @param me Request to check.
+ */
+extern uint16_t cusbd_request_w_length(const struct cusbd_request *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_request_ctor().
+ * @brief Return wValue field of the setup packet. Value returned
+ * in native endianness for easier use, not little endian.
+ * 
+ * @param me Request to check.
+ */
+extern uint16_t cusbd_request_w_value(const struct cusbd_request *me);
+
+
 /**@}*/
 
 #ifdef __cplusplus

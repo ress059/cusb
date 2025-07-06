@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 /* ECU. */
+#include "ecu/hsm.h"
 #include "ecu/ntree.h"
 
 /*------------------------------------------------------------*/
@@ -92,6 +93,12 @@
         .valid = (bool(*)(const struct cusbd_descriptor *))(valid_)                                 \
     }
 
+/**
+ * @brief Passed to API if optional callback object(s) are unused.
+ */
+#define CUSBD_DESCRIPTOR_OBJ_UNUSED \
+    ((void *)0)
+
 /*------------------------------------------------------------*/
 /*----------------- CUSBD DESCRIPTOR BASE CLASS --------------*/
 /*------------------------------------------------------------*/
@@ -131,6 +138,10 @@ struct cusbd_descriptor_vtable
  */
 struct cusbd_descriptor
 {
+    /// @brief Used in case descriptor has to be modeled as state machine.
+    /// @warning MUST be first member.
+    struct ecu_hsm hsm;
+
     /// @brief Virtual functions.
     const struct cusbd_descriptor_vtable *vptr;
 
@@ -186,6 +197,35 @@ extern void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_vi
  * @pre @p me is a concrete descriptor that has been constructed 
  * and inherits @ref cusbd_descriptor.
  * @pre @p visitor is a concrete visitor that has been constructed 
+ * and inherits @ref cusbd_visitor.
+ * @brief Accepts concrete visitor on @p me, and on all descriptors
+ * in @p me's subtree. However the visitor stops propgating in the
+ * tree as soon as the @p done function returns true.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ * @param done Mandatory function that returns true if visitor
+ * should stop being accepted. Otherwise returns false if visitor
+ * should keep propogating to the rest of the descriptors in the 
+ * tree. The first parameter to this function is the current
+ * descriptor in the iteration that just accepted the visitor.
+ * @param object Optional object passed to @p done function.
+ * Supply @ref CUSBD_DESCRIPTOR_OBJ_UNUSED if unused. This
+ * cannot be a descriptor as that is already passed into @p done.
+ * 
+ * @returns True if @p done returned true. False if @p done 
+ * returned false for every descriptor.
+ */
+extern bool cusbd_descriptor_accept_before(struct cusbd_descriptor *me,
+                                           struct cusbd_visitor *visitor,
+                                           bool (*done)(const struct cusbd_descriptor *d, void *obj),
+                                           void *obj);
+
+/**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been constructed 
  * and inherits @ref cusbd_cvisitor.
  * @brief Const-qualified version of @ref cusbd_descriptor_accept().
  * Accepts concrete visitor on @p me, and on all descriptors
@@ -196,6 +236,36 @@ extern void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_vi
  * to run.
  */
 extern void cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor);
+
+/**
+ * @pre @p me is a concrete descriptor that has been constructed 
+ * and inherits @ref cusbd_descriptor.
+ * @pre @p visitor is a concrete visitor that has been constructed 
+ * and inherits @ref cusbd_cvisitor.
+ * @brief Const-qualified version of @ref cusbd_descriptor_accept_before().
+ * Accepts concrete visitor on @p me, and on all descriptors
+ * in @p me's subtree. However the visitor stops propgating in the
+ * tree as soon as the @p done function returns true.
+ * 
+ * @param me Concrete descriptor that visitor algorithm runs on.
+ * @param visitor Concrete visitor containing specific algorithm
+ * to run.
+ * @param done Mandatory function that returns true if visitor
+ * should stop being accepted. Otherwise returns false if visitor
+ * should keep propogating to the rest of the descriptors in the 
+ * tree. The first parameter to this function is the current
+ * descriptor in the iteration that just accepted the visitor.
+ * @param object Optional object passed to @p done function.
+ * Supply @ref CUSBD_DESCRIPTOR_OBJ_UNUSED if unused. This
+ * cannot be a descriptor as that is already passed into @p done.
+ * 
+ * @returns True if @p done returned true. False if @p done 
+ * returned false for every descriptor.
+ */
+extern bool cusbd_descriptor_caccept_before(const struct cusbd_descriptor *me,
+                                            struct cusbd_cvisitor *visitor,
+                                            bool (*done)(const struct cusbd_descriptor *d, void *obj),
+                                            void *obj);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_descriptor_ctor().

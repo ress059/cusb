@@ -55,13 +55,15 @@ static void o_visit_endpoint(struct cusbd_visitor_w_total_length *me, const stru
 
 static void o_visit_device(struct cusbd_visitor_w_total_length *me, const struct cusbd *node)
 {
-    ECU_RUNTIME_ASSERT( (me && node) );
-    ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
-    /* Device descriptor not apart of wTotalLength calculation. */
+    /* Device descriptor not apart of wTotalLength calculation. 
+    Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
+    (void)me;
+    (void)node;
 }
 
 static void o_visit_configuration(struct cusbd_visitor_w_total_length *me, const struct cusbd_configuration *node)
 {
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && node) );
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
     /* Do not reset cound by doing me->wTotalLength = ... since we do not know the order of iteration. */
@@ -71,6 +73,7 @@ static void o_visit_configuration(struct cusbd_visitor_w_total_length *me, const
 
 static void o_visit_interface(struct cusbd_visitor_w_total_length *me, const struct cusbd_interface *node)
 {
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && node) );
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
     me->wTotalLength += sizeof(struct cusbd_interface_descriptor);
@@ -79,6 +82,7 @@ static void o_visit_interface(struct cusbd_visitor_w_total_length *me, const str
 
 static void o_visit_alternate_interface(struct cusbd_visitor_w_total_length *me, const struct cusbd_alternate_interface *node)
 {
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && node) );
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
     me->wTotalLength += sizeof(struct cusbd_interface_descriptor);
@@ -87,6 +91,7 @@ static void o_visit_alternate_interface(struct cusbd_visitor_w_total_length *me,
 
 static void o_visit_endpoint(struct cusbd_visitor_w_total_length *me, const struct cusbd_endpoint *node)
 {
+    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
     ECU_RUNTIME_ASSERT( (me && node) );
     ECU_RUNTIME_ASSERT( (me->wTotalLength <= UINT16_MAX) );
     me->wTotalLength += sizeof(struct cusbd_endpoint_descriptor);

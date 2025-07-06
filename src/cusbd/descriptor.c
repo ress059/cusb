@@ -28,6 +28,13 @@
 ECU_ASSERT_DEFINE_NAME("cusbd/descriptor.c")
 
 /*------------------------------------------------------------*/
+/*---------------------- STATIC ASSERTS ----------------------*/
+/*------------------------------------------------------------*/
+
+ECU_STATIC_ASSERT( (ECU_HSM_IS_BASEOF(hsm, struct cusbd_descriptor)), 
+                    "cusbd_descriptor must inherit ecu_hsm." );
+
+/*------------------------------------------------------------*/
 /*------- CUSBD DESCRIPTOR BASE CLASS MEMBER FUNCTIONS -------*/
 /*------------------------------------------------------------*/
 
@@ -54,19 +61,75 @@ void cusbd_descriptor_accept(struct cusbd_descriptor *me, struct cusbd_visitor *
     }
 }
 
+bool cusbd_descriptor_accept_before(struct cusbd_descriptor *me,
+                                    struct cusbd_visitor *visitor,
+                                    bool (*done)(const struct cusbd_descriptor *d, void *obj),
+                                    void *obj)
+{
+    ECU_RUNTIME_ASSERT( (me && visitor && done) );
+    bool status = false;
+    struct ecu_ntnode_postorder_iterator iter;
+    struct cusbd_descriptor *descriptor = (struct cusbd_descriptor *)0;
+
+    /* Use a postorder iteration to allow safe removal of nodes. */
+    ECU_NTNODE_POSTORDER_FOR_EACH(n, &iter, &me->ntnode)
+    {
+        /* Do not assert valid() since this is already done in v_cusbd_descriptor_accept(). */
+        descriptor = ECU_NTNODE_GET_ENTRY(n, struct cusbd_descriptor, ntnode);
+        ECU_RUNTIME_ASSERT( (descriptor != obj) );
+        v_cusbd_descriptor_accept(descriptor, visitor);
+
+        if ((*done)(descriptor, obj))
+        {
+            status = true;
+            break;
+        }
+    }
+
+    return status;
+}
+
 void cusbd_descriptor_caccept(const struct cusbd_descriptor *me, struct cusbd_cvisitor *visitor)
 {
     ECU_RUNTIME_ASSERT( (me && visitor) );
     struct ecu_ntnode_postorder_citerator citer;
     const struct cusbd_descriptor *descriptor = (const struct cusbd_descriptor *)0;
 
-    /* Use a postorder iteration to remain consistence with cusbd_descriptor_accept(). */
+    /* Use a postorder iteration to remain consistent with cusbd_descriptor_accept(). */
     ECU_NTNODE_CONST_POSTORDER_FOR_EACH(n, &citer, &me->ntnode)
     {
         /* Do not assert valid() since this is already done in v_cusbd_descriptor_caccept(). */
         descriptor = ECU_NTNODE_GET_CONST_ENTRY(n, struct cusbd_descriptor, ntnode);
         v_cusbd_descriptor_caccept(descriptor, visitor);
     }
+}
+
+bool cusbd_descriptor_caccept_before(const struct cusbd_descriptor *me,
+                                     struct cusbd_cvisitor *visitor,
+                                     bool (*done)(const struct cusbd_descriptor *d, void *obj),
+                                     void *obj)
+{
+    ECU_RUNTIME_ASSERT( (me && visitor && done) );
+    bool status = false;
+    struct ecu_ntnode_postorder_citerator citer;
+    const struct cusbd_descriptor *descriptor = (const struct cusbd_descriptor *)0;
+
+    /* Use a postorder iteration to remain consistent with cusbd_descriptor_accept(). */
+    ECU_NTNODE_CONST_POSTORDER_FOR_EACH(n, &citer, &me->ntnode)
+    {
+        /* Do not assert valid() since this is already done in v_cusbd_descriptor_caccept(). */
+        descriptor = ECU_NTNODE_GET_CONST_ENTRY(n, struct cusbd_descriptor, ntnode);
+        ECU_RUNTIME_ASSERT( (descriptor != obj) );
+        v_cusbd_descriptor_caccept(descriptor, visitor);
+
+        if ((*done)(descriptor, obj))
+        {
+            status = true;
+            break;
+        }
+    }
+
+    return status;
 }
 
 uint8_t cusbd_descriptor_type(const struct cusbd_descriptor *me)

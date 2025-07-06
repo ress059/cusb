@@ -63,6 +63,14 @@ ECU_ASSERT_DEFINE_NAME("cusbd/visitor/request.c.")
 #define BREQUEST_SYNCH_FRAME (12U)
 
 /*------------------------------------------------------------*/
+/*---------------------- STATIC ASSERTS ----------------------*/
+/*------------------------------------------------------------*/
+
+ECU_STATIC_ASSERT( (CUSBD_REQUEST_STATE_RESERVED == 0), 
+                    "cusbd_request_state enum must default initialize to CUSBD_REQUEST_STATE_RESERVED so visitors "
+                    "can detect if request was not constructed (default case for state variable)." );
+
+/*------------------------------------------------------------*/
 /*--------------- CUSBD REQUEST MEMBER FUNCTIONS -------------*/
 /*------------------------------------------------------------*/
 
@@ -71,7 +79,7 @@ void cusbd_request_ctor(struct cusbd_request *me,
                         enum cusbd_request_state state)
 {
     ECU_RUNTIME_ASSERT( (me && e) );
-    ECU_RUNTIME_ASSERT( (state >= 0 && state < CUSBD_REQUEST_STATE_COUNT) );
+    ECU_RUNTIME_ASSERT( (state > CUSBD_REQUEST_STATE_RESERVED && state < CUSBD_REQUEST_STATE_COUNT) );
 
     /* Perform translations. Limiting it here protects library from any changes
     to USB standard, etc. Changepoint would be limited to only here as opposed to
@@ -279,4 +287,22 @@ enum cusbd_request_value cusbd_request_value(const struct cusbd_request *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
     return (me->value);
+}
+
+uint16_t cusbd_request_w_index(const struct cusbd_request *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    return (me->wIndex);
+}
+
+uint16_t cusbd_request_w_length(const struct cusbd_request *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    return (me->wLength);
+}
+
+uint16_t cusbd_request_w_value(const struct cusbd_request *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    return (me->wValue);
 }

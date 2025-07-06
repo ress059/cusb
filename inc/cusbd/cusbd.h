@@ -17,23 +17,32 @@
 /*------------------------------------------------------------*/
 
 /* STDLib. */
+#include <stdbool.h>
 #include <stdint.h>
 
-/* CUSB. */
+/* CUSB. Include all headers so user only includes cusbd.h. */
 #include "cusbd/configuration.h"
 #include "cusbd/descriptor.h"
 #include "cusbd/endpoint.h"
+#include "cusbd/event.h"
+#include "cusbd/interface.h"
 #include "cusbd/string.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
 #include "ecu/endian.h"
-#include "ecu/hsm.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
 /*------------------------------------------------------------*/
+
+/**
+ * @brief Value of bDescriptorType in a standard
+ * devoce descriptor.
+ */
+#define CUSBD_BDESCRIPTORTYPE \
+    ((uint8_t)0x02)
 
 /**
  * @brief Helper macro passed to @ref cusbd_ctor() if
@@ -46,11 +55,9 @@
     ((const struct cusbd_string_zero *)0)
 
 /**
- * @brief Helper macro passed to @ref cusbd_ctor() if
- * object passed to user-defined endpoint functions is
- * unused.
+ * @brief Passed to API if optional callback object(s) are unused.
  */
-#define CUSBD_ENDPOINT_OBJ_UNUSED \
+#define CUSBD_OBJ_UNUSED \
     ((void *)0)
     
 /**
@@ -108,21 +115,21 @@
     }
 
 /*------------------------------------------------------------*/
-/*------------------------ CUSBD DEVICE ----------------------*/
+/*---------------------------- CUSBD -------------------------*/
 /*------------------------------------------------------------*/
 
-/**
- * @brief String index. I.e. iManufacturer, iProduct, iSerialNumber,
- * iConfiguration, iInterface, etc.
- */
-enum cusbd_string_id
-{
-    CUSBD_MANUFACTURER_STRING_ID = 1,   /**< ID given to all manufacturer strings. */
-    CUSBD_PRODUCT_STRING_ID,            /**< ID given to all product strings. */
-    CUSBD_SERIAL_NUMBER_STRING_ID,      /**< ID given to all serial number strings. */
-    /*********************************/
-    CUSBD_USER_STRING_ID_BEGIN          /**< Strings attached to descriptors start at this ID. */
-};
+// /**
+//  * @brief String index. I.e. iManufacturer, iProduct, iSerialNumber,
+//  * iConfiguration, iInterface, etc.
+//  */
+// enum cusbd_string_id
+// {
+//     CUSBD_MANUFACTURER_STRING_ID = 1,   /**< ID given to all manufacturer strings. */
+//     CUSBD_PRODUCT_STRING_ID,            /**< ID given to all product strings. */
+//     CUSBD_SERIAL_NUMBER_STRING_ID,      /**< ID given to all serial number strings. */
+//     /*********************************/
+//     CUSBD_USER_STRING_ID_BEGIN          /**< Strings attached to descriptors start at this ID. */
+// };
 
 /**
  * @brief Data in a standard device descriptor. Using
@@ -184,7 +191,6 @@ struct cusbd_device_descriptor
     uint8_t bNumConfigurations;
 } ECU_ATTRIBUTE_PACKED;
 
-#pragma message("TODO: Device qualifier not handled for now.")
 /**
  * @brief Object representing a USB device. This is the main
  * object that organizes all of the device's descriptors
@@ -192,10 +198,9 @@ struct cusbd_device_descriptor
  */
 struct cusbd
 {
-    /// @brief USB device modeled as a hierarchical state machine.
-    /// @warning MUST be first member since state machine
-    /// framework requires inheritance.
-    struct ecu_hsm hsm;
+    /// @brief Inherit @ref cusbd_descriptor base class.
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust iManufacturer, bNumConfigurations, etc
@@ -213,12 +218,6 @@ struct cusbd
     /// can be used on any of the device's descriptors.
     const struct cusbd_string_zero *string0;
 
-    /// @brief Configuration descriptors attached to this device.
-    /// @warning Once the device is fully setup this must contain at 
-    /// least 1 configuration since all devices must have at
-    /// least one configuration descriptor.
-    struct ecu_dlist configurations;
-
     /// @brief All manufacturer strings associated with this
     /// device. iManufacturer. Optional. Empty if unused.
     /// @warning Device must use string0 if this is used.
@@ -234,39 +233,48 @@ struct cusbd
     /// @warning Device must use string0 if this is used.
     struct ecu_dlist serial_number_strings;
 
-    /// @brief Dependency injection that links the CUSBD device
-    /// with user's hardware USB controller.
-    struct 
+    /// @brief True = remote wakeup enabled. 
+    /// False = remote wakeup disabled.
+    bool remote_wakeup;
+
+    /// @brief bConfigurationValue of the currently active 
+    /// configuration. Must be 0 if device is unconfigured.
+    uint8_t configuration_value;
+
+    /// @brief Dependency injection. Links library with hardware-specific 
+    /// code controlling the USB device controller.
+    struct
     {
-        /// @brief User-defined function that must configure the
-        /// specified endpoint. For the control endpoint,
-        /// id equals @ref CUSBD_ENDPOINT0_OUT or @ref CUSBD_ENDPOINT0_IN,
-        /// type equals @ref CUSBD_ENDPOINT_TYPE_CONTROL, and packet_size
-        /// is derived from what was specified in the @ref cusbd_device_descriptor
-        /// supplied in @ref cusbd_ctor(). For all other endpoints,
-        /// id equals the active endpoint's user-ID specified in @ref cusbd_endpoint_ctor(),
-        /// Type and packet_size are derived from the active
-        /// endpoint's descriptor (@ref cusbd_endpoint_descriptor) supplied 
-        /// in @ref cusbd_endpoint_ctor().
-        /// Called during initial device enumeration or when
-        /// the device's configuration/interface changes due to a
-        /// SET_CONFIGURATION() or SET_INTERFACE() request.
-        // void (*configure)(cusbd_endpoint_id_t id, enum cusbd_endpoint_type type, uint16_t packet_size, void *obj);
-        void (*configure)(const struct cusbd_endpoint *endpoint, void *obj);
+        /// @brief Called when the characteristics of an endpoint
+        /// must change due to a SET_CONFIGURATION() or SET_INTERFACE()
+        /// being processed. The endpoint's existing and new characteristics
+        /// can be retrieved using the cusbd_endpoint() API. 
+        void (*ep_configure)(const struct cusbd_endpoint *me, void *obj);
 
-        /// @brief User-defined function that is called when data
-        /// needs to be sent to the host. The supplied data must be
-        /// placed into the specified endpoint's (IN) buffer. len is 
-        /// the number of bytes of data. id equals @ref CUSBD_ENDPOINT0_IN 
-        /// for the control endpoint. For all other endpoints,
-        /// id equals the endpoint's user-ID specified in @ref cusbd_endpoint_ctor().
-        // void (*send)(cusbd_endpoint_id_t id, const void *data, size_t len, void *obj);
-        void (*send)(const struct cusbd_endpoint *endpoint, const void *data, size_t len, void *obj);
+        /// @brief Called when a SET_ADDRESS() request is successfully processed.
+        /// User must set the USB device's address to the value supplied.
+        void (*set_address)(uint8_t address, void *obj);
 
-        /// @brief Optional object to pass to endpoint functions.
-        /// Equals CUSBD_ENDPOINT_OBJ_UNUSED if unused.
+        /// @brief Optional object passed into API functions above.
         void *obj;
-    } endpoint;
+    } device;
+
+    /// @brief Dependency injection. Links library with hardware-specific
+    /// code controlling endpoint0.
+    struct
+    {
+        /// @brief Called when device must send data back to host during
+        /// enumeration.
+        void (*send)(const void *data, size_t len, void *obj);
+
+        /// @brief Called when request is processed. Function indicates
+        /// whether ACK, NAK, or STALL should be sent back to the host.
+        /// This should be done in either Data or Status stage.
+        void (*handshake)(enum cusbd_endpoint_status status, void *obj);
+
+        /// @brief Optional object passed into API functions above.
+        void *obj;
+    } ep0;
 };
 
 /*------------------------------------------------------------*/
@@ -382,9 +390,18 @@ extern void cusbd_add_product_string(struct cusbd *me,
 extern void cusbd_add_serial_number_string(struct cusbd *me,
                                            struct cusbd_string *string);
 
-extern void cusbd_start(struct cusbd *me);
 extern void cusbd_dispatch(struct cusbd *me, const void *event);
+extern void cusbd_start(struct cusbd *me);
 extern void cusbd_stop(struct cusbd *me);
+
+/**
+ * @brief Returns true if the supplied device contains
+ * valid data and was properly constructed via @ref cusbd_ctor(). 
+ * False otherwise.
+ * 
+ * @param me Device to check.
+ */
+extern bool cusbd_valid(const struct cusbd *me);
 /**@}*/
 
 

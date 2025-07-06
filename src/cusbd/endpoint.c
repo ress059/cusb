@@ -208,6 +208,7 @@ void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
     cusbd_descriptor_ctor(&me->base, CUSBD_ENDPOINT_BDESCRIPTORTYPE);
     me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_endpoint_descriptor));
+    me->halt = false;
 }
 
 enum cusbd_endpoint_direction cusbd_endpoint_direction(const struct cusbd_endpoint *me)

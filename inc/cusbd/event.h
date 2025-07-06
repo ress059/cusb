@@ -131,6 +131,14 @@ extern "C" {
 #endif
 
 /**
+ * @pre @p me is a concrete event that has been constructed.
+ * @brief Returns ID of the event.
+ * 
+ * @param me Derived event to check.
+ */
+extern enum cusbd_event_id cusbd_event_id(const struct cusbd_event *me);
+
+/**
  * @brief Returns true if the supplied event was properly
  * constructed. False otherwise.
  * 

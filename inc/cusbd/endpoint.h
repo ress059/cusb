@@ -95,6 +95,16 @@
 // typedef int16_t cusbd_endpoint_id_t;
 
 /**
+ * @brief Status of endpoint.
+ */
+enum cusbd_endpoint_status
+{
+    CUSBD_ENDPOINT_STATUS_ACK,      /**< Request was successfully processed. */
+    CUSBD_ENDPOINT_STATUS_NAK,      /**< Request cannot be processed. Device is currently busy. */
+    CUSBD_ENDPOINT_STATUS_STALL,    /**< Request successfully processed but invalid request. Request error. */
+};
+
+/**
  * @brief Endpoint direction. Bit 7 of bEndpointAddress.
  */
 enum cusbd_endpoint_direction
@@ -200,11 +210,16 @@ struct cusbd_endpoint
     /// @warning MUST be first member.
     struct cusbd_descriptor base;
 
-    /// @brief Descriptor data. A copy is stored so the API can
-    /// automatically adjust it as the device is updated.
+    /// @brief Descriptor data. This is stored by reference
+    /// since the endpoint descriptor will never need to be changed. 
+    /// I.e. not like bInterfaceNumber, wTotalLength, etc.
     /// @warning This struct is packed and will always be in 
     /// little endian.
-    struct cusbd_endpoint_descriptor descriptor;
+    const struct cusbd_endpoint_descriptor *descriptor;
+
+    /// @brief True = endpoint halted and always returns STALL.
+    /// False = endpoint active.
+    bool halt;
 };
 
 /*------------------------------------------------------------*/
