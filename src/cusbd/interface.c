@@ -21,7 +21,6 @@
 /* CUSB. */
 #include "cusbd/endpoint.h"
 #include "cusbd/string.h"
-#include "cusbd/visitor/visitor.h"
 
 /* ECU. */
 #include "ecu/asserter.h"
@@ -45,16 +44,6 @@ ECU_ASSERT_DEFINE_NAME("cusbd/interface.c")
  */
 static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *descriptor);
 
-/**
- * @brief Override of @ref v_cusbd_descriptor_accept().
- */
-static void o_interface_accept(struct cusbd_interface *me, struct cusbd_visitor *visitor);
-
-/**
- * @brief Override of @ref v_cusbd_descriptor_caccept().
- */
-static void o_interface_caccept(const struct cusbd_interface *me, struct cusbd_cvisitor *visitor);
-
 /*------------------------------------------------------------*/
 /*---- STATIC FUNCTION DECLARATIONS - ALTERNATE INTERFACE ----*/
 /*------------------------------------------------------------*/
@@ -67,18 +56,6 @@ static void o_interface_caccept(const struct cusbd_interface *me, struct cusbd_c
  * @param descriptor Descriptor to check.
  */
 static bool alternate_interface_descriptor_valid(const struct cusbd_interface_descriptor *descriptor);
-
-/**
- * @brief Override of @ref v_cusbd_descriptor_accept().
- */
-static void o_alternate_interface_accept(struct cusbd_alternate_interface *me, 
-                                         struct cusbd_visitor *visitor);
-
-/**
- * @brief Override of @ref v_cusbd_descriptor_caccept().
- */
-static void o_alternate_interface_caccept(const struct cusbd_alternate_interface *me, 
-                                          struct cusbd_cvisitor *visitor);
 
 /*------------------------------------------------------------*/
 /*---------- STATIC FUNCTION DEFINITIONS - INTERFACE ---------*/
@@ -100,20 +77,6 @@ static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *
     }
 
     return status;
-}
-
-static void o_interface_accept(struct cusbd_interface *me, struct cusbd_visitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_interface(visitor, me);
-}
-
-static void o_interface_caccept(const struct cusbd_interface *me, struct cusbd_cvisitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_interface(visitor, me);
 }
 
 /*------------------------------------------------------------*/
@@ -138,34 +101,12 @@ static bool alternate_interface_descriptor_valid(const struct cusbd_interface_de
     return status;
 }
 
-static void o_alternate_interface_accept(struct cusbd_alternate_interface *me, 
-                                         struct cusbd_visitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_alternate_interface(visitor, me);
-}
-
-static void o_alternate_interface_caccept(const struct cusbd_alternate_interface *me, 
-                                          struct cusbd_cvisitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_alternate_interface(visitor, me);
-}
-
 /*------------------------------------------------------------*/
 /*---------------------- STATIC ASSERTS ----------------------*/
 /*------------------------------------------------------------*/
 
 ECU_STATIC_ASSERT( (sizeof(struct cusbd_interface_descriptor) == (size_t)9),
                     "Interface descriptor is 9 bytes." );
-
-ECU_STATIC_ASSERT( (CUSBD_DESCRIPTOR_IS_BASEOF(base, struct cusbd_interface)),
-                    "cusbd_interface must inherit cusbd_descriptor." );
-
-ECU_STATIC_ASSERT( (CUSBD_DESCRIPTOR_IS_BASEOF(base, struct cusbd_alternate_interface)),
-                    "cusbd_alternate_interface must inherit cusbd_descriptor." );
 
 /*------------------------------------------------------------*/
 /*-------------- CUSBD INTERFACE MEMBER FUNCTIONS ------------*/
@@ -177,14 +118,7 @@ void cusbd_interface_ctor(struct cusbd_interface *me,
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (interface_descriptor_valid(descriptor)) );
 
-    static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
-        &o_interface_accept,
-        &o_interface_caccept,
-        &cusbd_interface_valid
-    );
-
-    cusbd_descriptor_ctor(&me->base, CUSBD_INTERFACE_BDESCRIPTORTYPE);
-    me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
+    ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, (ecu_object_id)CUSBD_INTERFACE_BDESCRIPTORTYPE);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_interface_descriptor));
     me->alternate_setting = 0;
     ecu_dlist_ctor(&me->strings);
@@ -199,7 +133,7 @@ void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
     ECU_RUNTIME_ASSERT( (me && alternate_interface) );
     ECU_RUNTIME_ASSERT( (cusbd_interface_valid(me)) );
     ECU_RUNTIME_ASSERT( (cusbd_alternate_interface_valid(alternate_interface)) );
-    ecu_ntnode_push_back(&me->base.ntnode, &alternate_interface->base.ntnode);
+    ecu_ntnode_push_child_back(&me->ntnode, &alternate_interface->ntnode);
 }
 
 void cusbd_interface_add_endpoint(struct cusbd_interface *me,
@@ -211,7 +145,7 @@ void cusbd_interface_add_endpoint(struct cusbd_interface *me,
     ECU_RUNTIME_ASSERT( (me && endpoint) );
     ECU_RUNTIME_ASSERT( (cusbd_interface_valid(me)) );
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
-    ecu_ntnode_push_back(&me->base.ntnode, &endpoint->base.ntnode);
+    ecu_ntnode_push_child_back(&me->ntnode, &endpoint->ntnode);
 }
 
 void cusbd_interface_add_string(struct cusbd_interface *me,
@@ -227,8 +161,8 @@ void cusbd_interface_add_string(struct cusbd_interface *me,
 bool cusbd_interface_valid(const struct cusbd_interface *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
-    return (cusbd_descriptor_valid(&me->base) &&
-            cusbd_descriptor_type(&me->base) == CUSBD_INTERFACE_BDESCRIPTORTYPE &&
+    return (ecu_ntnode_valid(&me->ntnode) &&
+            ecu_ntnode_id(&me->ntnode) == (ecu_object_id)CUSBD_INTERFACE_BDESCRIPTORTYPE &&
             interface_descriptor_valid(&me->descriptor) &&
             ecu_dlist_valid(&me->strings));
 }
@@ -243,14 +177,7 @@ void cusbd_alternate_interface_ctor(struct cusbd_alternate_interface *me,
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (alternate_interface_descriptor_valid(descriptor)) );
 
-    static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
-        &o_alternate_interface_accept,
-        &o_alternate_interface_caccept,
-        &cusbd_alternate_interface_valid
-    );
-
-    cusbd_descriptor_ctor(&me->base, CUSBD_INTERFACE_BDESCRIPTORTYPE);
-    me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
+    ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, (ecu_object_id)CUSBD_INTERFACE_BDESCRIPTORTYPE);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_interface_descriptor));
     ecu_dlist_ctor(&me->strings);
 }
@@ -264,7 +191,7 @@ void cusbd_alternate_interface_add_endpoint(struct cusbd_alternate_interface *me
     ECU_RUNTIME_ASSERT( (me && endpoint) );
     ECU_RUNTIME_ASSERT( (cusbd_alternate_interface_valid(me)) );
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
-    ecu_ntnode_push_back(&me->base.ntnode, &endpoint->base.ntnode);
+    ecu_ntnode_push_child_back(&me->ntnode, &endpoint->ntnode);
 }
 
 void cusbd_alternate_interface_add_string(struct cusbd_alternate_interface *me,
@@ -280,8 +207,8 @@ void cusbd_alternate_interface_add_string(struct cusbd_alternate_interface *me,
 bool cusbd_alternate_interface_valid(const struct cusbd_alternate_interface *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
-    return (cusbd_descriptor_valid(&me->base) &&
-            cusbd_descriptor_type(&me->base) == CUSBD_INTERFACE_BDESCRIPTORTYPE &&
+    return (ecu_ntnode_valid(&me->ntnode) &&
+            ecu_ntnode_id(&me->ntnode) == (ecu_object_id)CUSBD_INTERFACE_BDESCRIPTORTYPE &&
             alternate_interface_descriptor_valid(&me->descriptor) &&
             ecu_dlist_valid(&me->strings));
 }

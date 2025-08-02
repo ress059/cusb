@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     ecu
     GIT_REPOSITORY https://github.com/ress059/ecu.git
-    GIT_TAG        6a0ce1bed30420d71e13470200d1914aaa57b7b3 # Latest master. TODO: Update to latest once ecu released.
+    GIT_TAG        7dfb5a929803dc6e9a859aa150c1bf0a37795f5f # Latest master. TODO: Update to latest once ecu released.
 )
 FetchContent_MakeAvailable(ecu)
 
@@ -30,17 +30,12 @@ FetchContent_MakeAvailable(ecu)
 add_library(cusb STATIC
     # src/cusbd/
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/configuration.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/descriptor.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/cusbd.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/endpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/event.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
-
-    # src/cusbd/visitor/
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/clear_feature.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/get_configuration.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/request.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/visitor.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/visitor/w_total_length.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/request.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/string.c
 )
 
 # Example include in the Application would be #include "cusbd/cusbd.h" 

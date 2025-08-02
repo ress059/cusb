@@ -21,9 +21,7 @@
 #include <string.h> /* memcpy. */
 
 /* CUSB. */
-#include "cusbd/visitor/visitor.h"
-#include "cusbd/visitor/clear_feature.h"
-#include "cusbd/visitor/get_configuration.h"
+#include "cusbd/request.h"
 
 /* ECU. */
 #include "ecu/asserter.h"
@@ -33,6 +31,22 @@
 /*------------------------------------------------------------*/
 
 ECU_ASSERT_DEFINE_NAME("cusbd/cusbd.c")
+
+/*------------------------------------------------------------*/
+/*--------------------------- DEFINES ------------------------*/
+/*------------------------------------------------------------*/
+
+/// @brief All addresses of USB devices must be less than this value.
+#define MAX_ADDRESS (128U)
+
+/// @brief High byte of wValue in GET_CONFIGURATION() request when device descriptor requested.
+#define GET_DESCRIPTOR_WVALUE_TYPE_DEVICE (1U)
+
+/// @brief High byte of wValue in GET_CONFIGURATION() request when configuration descriptor requested.
+#define GET_DESCRIPTOR_WVALUE_TYPE_CONFIGURATION (2U)
+
+/// @brief High byte of wValue in GET_CONFIGURATION() request when string descriptor requested.
+#define GET_DESCRIPTOR_WVALUE_TYPE_STRING (3U)
 
 /*------------------------------------------------------------*/
 /*---------------- STATIC FUNCTION DECLARATIONS --------------*/
@@ -47,30 +61,48 @@ ECU_ASSERT_DEFINE_NAME("cusbd/cusbd.c")
  */
 static bool device_descriptor_valid(const struct cusbd_device_descriptor *descriptor);
 
-/**
- * @brief Override of @ref v_cusbd_descriptor_accept().
- */
-static void o_accept(struct cusbd *me, struct cusbd_visitor *visitor);
+/*------------------------------------------------------------*/
+/*------ STATIC FUNCTION DECLARATIONS - DEVICE CONTROL -------*/
+/*------------------------------------------------------------*/
 
-/**
- * @brief Override of @ref v_cusbd_descriptor_caccept().
- */
-static void o_caccept(const struct cusbd *me, struct cusbd_cvisitor *visitor);
+/// @brief Calls @ref cusbd_api function supplied by user. Purely a wrapper to protect against API changes.
+static void device_set_address(const struct cusbd *device);
+
+/// @brief Calls @ref cusbd_api function supplied by user. Purely a wrapper to protect against API changes.
+static void endpoint_zero_configure(const struct cusbd *device);
+
+/// @brief Calls @ref cusbd_api function supplied by user. Purely a wrapper to protect against API changes.
+static void endpoint_zero_halt(const struct cusbd *device);
+
+/// @brief Calls @ref cusbd_api function supplied by user. Purely a wrapper to protect against API changes.
+static void endpoint_zero_send(const struct cusbd *device, const void *data, size_t len);
+
+/// @brief Calls @ref cusbd_api function supplied by user. Purely a wrapper to protect against API changes.
+static void endpoint_zero_stall(const struct cusbd *device);
+
+/*------------------------------------------------------------*/
+/*------ STATIC FUNCTION DECLARATIONS - ENDPOINT CONTROL -----*/
+/*------------------------------------------------------------*/
+
+/// @brief Calls @ref cusbd_endpoint_api function supplied by user. 
+/// Purely a wrapper to protect against API changes.
+static void endpoint_configure(const struct cusbd_endpoint *endpoint);
+
+/// @brief Calls @ref cusbd_endpoint_api function supplied by user. 
+/// Purely a wrapper to protect against API changes.
+static void endpoint_halt(const struct cusbd_endpoint *endpoint);
+
+/// @brief Calls @ref cusbd_endpoint_api function supplied by user. 
+/// Purely a wrapper to protect against API changes.
+static void endpoint_send(const struct cusbd_endpoint *endpoint, const void *data, size_t len);
+
+/// @brief Calls @ref cusbd_endpoint_api function supplied by user. 
+/// Purely a wrapper to protect against API changes.
+static void endpoint_stall(const struct cusbd_endpoint *endpoint);
 
 /*------------------------------------------------------------*/
 /*--- STATIC FUNCTION DECLARATIONS - STATE MACHINE HELPERS ---*/
 /*------------------------------------------------------------*/
-
-/**
- * @brief Returns true when the current descriptor in the iteration
- * has processed the setup packet. Otherwise returns false. Callback
- * function passed to @ref cusbd_descriptor_accept_before() and 
- * @ref cusbd_descriptor_caccept_before(). Do not call directly.
- * 
- * @param d Unused.
- * @param obj @ref cusbd_request object.
- */
-bool setup_packet_processed(const struct cusbd_descriptor *d, void *obj);
 
 /**
  * @brief Processes setup packet received in control transfer 
@@ -85,16 +117,16 @@ bool setup_packet_processed(const struct cusbd_descriptor *d, void *obj);
  * @param me Device that received setup packet.
  * @param event Setup packet RX event.
  */
-static void process_setup_packet_default_state(struct cusbd *me, 
-                                               const struct cusbd_setup_packet_rx_event *event);
+static void process_request_default_state(struct cusbd *me, 
+                                          const struct cusbd_rx_request_event *event);
 
 /**
  * @brief Same as @ref process_setup_packet_default_state(), 
  * however this function processes the packet while the device
  * is in the address state.
  */
-static void process_setup_packet_address_state(struct cusbd *me,
-                                               const struct cusbd_setup_packet_rx_event *event);
+static void process_request_address_state(struct cusbd *me,
+                                          const struct cusbd_rx_request_event *event);
 
 /**
  * @brief Same as @ref process_setup_packet_default_state(), 
@@ -201,142 +233,423 @@ static bool device_descriptor_valid(const struct cusbd_device_descriptor *descri
     return status;
 }
 
-static void o_accept(struct cusbd *me, struct cusbd_visitor *visitor)
+/*------------------------------------------------------------*/
+/*------ STATIC FUNCTION DEFINITIONS - DEVICE CONTROL --------*/
+/*------------------------------------------------------------*/
+
+static void device_set_address(const struct cusbd *device)
 {
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_device(visitor, me);
+    ECU_RUNTIME_ASSERT( (device) );
+    ECU_RUNTIME_ASSERT( (device->api) );
+    ECU_RUNTIME_ASSERT( (device->api->device_set_address) );
+    ECU_RUNTIME_ASSERT( (device->address < MAX_ADDRESS) );
+    (*device->api->device_set_address)(device->address, device->api->device_obj);
 }
 
-static void o_caccept(const struct cusbd *me, struct cusbd_cvisitor *visitor)
+static void endpoint_zero_configure(const struct cusbd *device)
 {
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_device(visitor, me);
+    ECU_RUNTIME_ASSERT( (device) );
+    ECU_RUNTIME_ASSERT( (device->api) );
+    ECU_RUNTIME_ASSERT( (device->api->endpoint0_configure) );
+    uint8_t bMaxPacketSize0 = device->descriptor.bMaxPacketSize0;
+
+    (*device->api->endpoint0_configure)(bMaxPacketSize0, device->api->endpoint0_obj);
+}
+
+static void endpoint_zero_halt(const struct cusbd *device)
+{
+    ECU_RUNTIME_ASSERT( (device) );
+    ECU_RUNTIME_ASSERT( (device->api) );
+    ECU_RUNTIME_ASSERT( (device->api->endpoint0_halt) );
+    (*device->api->endpoint0_halt)(device->api->endpoint0_obj);
+}
+
+static void endpoint_zero_send(const struct cusbd *device, const void *data, size_t len)
+{
+    ECU_RUNTIME_ASSERT( (device) );
+    ECU_RUNTIME_ASSERT( (device->api) );
+    ECU_RUNTIME_ASSERT( (device->api->endpoint0_send) );
+    ECU_RUNTIME_ASSERT( (data) );
+    ECU_RUNTIME_ASSERT( (len > 0) );
+    (*device->api->endpoint0_send)(data, len, device->api->endpoint0_obj);
+}
+
+static void endpoint_zero_stall(const struct cusbd *device)
+{
+    ECU_RUNTIME_ASSERT( (device) );
+    ECU_RUNTIME_ASSERT( (device->api) );
+    ECU_RUNTIME_ASSERT( (device->api->endpoint0_stall) );
+    (*device->api->endpoint0_stall)(device->api->endpoint0_obj);
+}
+
+/*------------------------------------------------------------*/
+/*------ STATIC FUNCTION DEFINITIONS - ENDPOINT CONTROL ------*/
+/*------------------------------------------------------------*/
+
+static void endpoint_configure(const struct cusbd_endpoint *endpoint)
+{
+    ECU_RUNTIME_ASSERT( (endpoint) );
+    ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
+    (*endpoint->api->configure)(endpoint, endpoint->api->obj);
+}
+
+static void endpoint_halt(const struct cusbd_endpoint *endpoint)
+{
+    ECU_RUNTIME_ASSERT( (endpoint) );
+    ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
+    (*endpoint->api->halt)(endpoint, endpoint->api->obj);
+}
+
+static void endpoint_send(const struct cusbd_endpoint *endpoint, const void *data, size_t len)
+{
+    ECU_RUNTIME_ASSERT( (endpoint && data) );
+    ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
+    ECU_RUNTIME_ASSERT( (len > 0) );
+    (*endpoint->api->send)(endpoint, data, len, endpoint->api->obj);
+}
+
+static void endpoint_stall(const struct cusbd_endpoint *endpoint)
+{
+    ECU_RUNTIME_ASSERT( (endpoint) );
+    ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(endpoint)) );
+    (*endpoint->api->stall)(endpoint, endpoint->api->obj);
 }
 
 /*------------------------------------------------------------*/
 /*--- STATIC FUNCTION DEFINITIONS - STATE MACHINE HELPERS ----*/
 /*------------------------------------------------------------*/
 
-bool setup_packet_processed(const struct cusbd_descriptor *d, void *obj)
-{
-    (void)d;
-    ECU_RUNTIME_ASSERT( (obj) );
-    struct cusbd_request *request = (struct cusbd_request *)obj;
-    return (cusbd_request_done(request));
-}
-
-static void process_setup_packet_default_state(struct cusbd *me, 
-                                               const struct cusbd_setup_packet_rx_event *event)
+static void process_request_default_state(struct cusbd *me, 
+                                          const struct cusbd_rx_request_event *event)
 {
     ECU_RUNTIME_ASSERT( (me && event) );
-    /* Use variable to avoid passing wrong state. */
-    static const enum cusbd_request_state STATE = CUSBD_REQUEST_STATE_DEFAULT_STATE;
 
-    enum cusbd_request_status status = CUSBD_REQUEST_STATUS_UNPROCESSED;
-    struct cusbd_request request;
-    cusbd_request_ctor(&request, event, CUSBD_REQUEST_STATE_DEFAULT_STATE);
+    switch (cusbd_rx_request_event_value(event))
+    {
+        case CUSBD_RX_REQUEST_EVENT_VALUE_CLEAR_FEATURE:
+        {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
 
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_CONFIGURATION:
+        {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_DESCRIPTOR:
+        {
 #pragma message("TODO")
-    switch (cusbd_request_value(&request))
-    {
-        case CUSBD_REQUEST_VALUE_GET_DESCRIPTOR:
-        {
             break;
         }
 
-        case CUSBD_REQUEST_VALUE_SET_ADDRESS:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_INTERFACE:
         {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
             break;
         }
 
-        case CUSBD_REQUEST_VALUE_SET_FEATURE:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_STATUS:
         {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
             break;
         }
 
-        /* !! FUTURE SUPPORTED REQUESTS ADDED HERE. ONLY ADD 
-        REQUESTS THAT ARE VALID IN THE DEFAULT STATE !! */
-
-        default:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_ADDRESS:
         {
-            /* Any unsupported requests. */
-            status = CUSBD_REQUEST_STATUS_STALL;
-            break;
-        }
-    }
+            uint16_t address = cusbd_rx_request_event_w_value(event);
 
-#pragma message("TODO: Need to know how to ACK, NAK, and STALL.")
-
-    if (status == CUSBD_REQUEST_STATUS_ACK)
-    {
-        // ACK.
-    }
-    else if (status == CUSBD_REQUEST_STATUS_NAK)
-    {
-        // NAK
-    }
-    else
-    {
-        // STALL if STALL or UNPROCESSED.
-    }
-}
-
-static void process_setup_packet_address_state(struct cusbd *me,
-                                               const struct cusbd_setup_packet_rx_event *event)
-{
-    ECU_RUNTIME_ASSERT( (me && event) );
-    /* Use variable to avoid passing wrong state. */
-    static const enum cusbd_request_state STATE = CUSBD_REQUEST_STATE_ADDRESS_STATE;
-
-    enum cusbd_request_status status = CUSBD_REQUEST_STATUS_UNPROCESSED;
-    struct cusbd_request request;
-    cusbd_request_ctor(&request, event, STATE);
-
-    #pragma message("TODO")
-
-    switch (cusbd_request_value(&request))
-    {
-        case CUSBD_REQUEST_VALUE_CLEAR_FEATURE:
-        {
-            struct cusbd_visitor_clear_feature clear_feature;
-            cusbd_visitor_clear_feature_ctor(&clear_feature, event, STATE);
-            (void)cusbd_descriptor_accept_before(&me->base, &clear_feature.base, &setup_packet_processed, &clear_feature.request);
-            status = cusbd_request_status(&clear_feature.request);
-            break;
-        }
-
-        case CUSBD_REQUEST_VALUE_GET_CONFIGURATION:
-        {
-            struct cusbd_visitor_get_configuration get_configuration;
-            cusbd_visitor_get_configuration_ctor(&get_configuration, event, STATE);
-            v_cusbd_descriptor_caccept(&me->base, &get_configuration.base); /* Can get away with only running on device. */
-            status = cusbd_request_status(&get_configuration.request);
-            break;
-        }
-
-        case CUSBD_REQUEST_VALUE_GET_DESCRIPTOR:
-        {
-            break;
-        }
-
-        case CUSBD_REQUEST_VALUE_GET_STATUS:
-        {
-            break;
-        }
-
-        case CUSBD_REQUEST_VALUE_SET_ADDRESS:
-        {
-            if (address == 0)
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_OUT &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_recipient(event) == CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE &&
+                address < MAX_ADDRESS &&
+                cusbd_rx_request_event_w_index(event) == 0 &&
+                cusbd_rx_request_event_w_length(event) == 0)
             {
-                ecu_hsm_change_state(me, &DEFAULT_STATE);
+                if (address > 0)
+                {
+                    me->address = address & 0xFFU;
+                    device_set_address(me);
+                    ecu_hsm_change_state(&me->hsm, &ADDRESS_STATE);
+                }
+            }
+            else
+            {
+                endpoint_zero_stall(me); /* Format of request is invalid. */
             }
             break;
         }
 
-        case CUSBD_REQUEST_VALUE_SET_CONFIGURATION:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_CONFIGURATION:
         {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_DESCRIPTOR:
+        {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_FEATURE:
+        {
+#pragma message("TODO")
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_INTERFACE:
+        {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SYNCH_FRAME:
+        {
+            endpoint_zero_stall(me); /* Request not supported in default state. */
+            break;
+        }
+
+        /*!!! FUTURE REQUESTS ADDED HERE. !!!*/
+
+        default:
+        {
+            /* Any other unsupported requests. */
+            endpoint_zero_stall(me);
+            break;
+        }
+    }
+}
+
+static void process_request_address_state(struct cusbd *me,
+                                          const struct cusbd_rx_request_event *event)
+{
+    ECU_RUNTIME_ASSERT( (me && event) );
+
+    switch (cusbd_rx_request_event_value(event))
+    {
+        case CUSBD_RX_REQUEST_EVENT_VALUE_CLEAR_FEATURE:
+        {
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_OUT &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_w_index(event) == 0 && /* Only interface0 and endpoint0 allowed in configured state. */
+                cusbd_rx_request_event_w_length(event) == 0)
+            {
+                uint16_t feature_selector = cusbd_rx_request_event_w_value(event);
+
+                switch (cusbd_rx_request_event_recipient(event))
+                {
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE:
+                    {
+                        if (feature_selector == CUSBD_FEATURE_SELECTOR_DEVICE_REMOTE_WAKEUP)
+                        {
+                            me->remote_wakeup = false;
+                        }
+                        else
+                        {
+                            /* Unsupported feature. Note TEST_MODE feature selector cannot be cleared with CLEAR_FEATURE(). */
+                            endpoint_zero_stall(me);
+                        }
+                        break;
+                    }
+
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_INTERFACE:
+                    {
+                        /* Interfaces cannot be recipients while device is in configured state. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_ENDPOINT:
+                    {
+                        /* Assume endpoint halting is user-controlled and a feature that cannot be cleared. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+
+                    default:
+                    {
+                        /* Invalid recipient. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                /* Format of request is invalid. */
+                endpoint_zero_stall(me);
+            }
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_CONFIGURATION:
+        {
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_IN &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_recipient(event) == CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE &&
+                cusbd_rx_request_event_w_value(event) == 0 &&
+                cusbd_rx_request_event_w_index(event) == 0 &&
+                cusbd_rx_request_event_w_length(event) == 1)
+            {
+                uint8_t configuration = 0; /* 0 is always sent since device unconfigured while in address state. */
+                endpoint_zero_send(me, &configuration, sizeof(configuration));
+            }
+            else
+            {
+                /* Format of request is invalid. */
+                endpoint_zero_stall(me);
+            }
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_DESCRIPTOR:
+        {
+    #pragma message("TODO: Going to need some sort of ring buffer. Buffer all descriptor data. Send up to wLength")
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_IN &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_recipient(event) == CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE)
+            {
+                uint16_t wValue = cusbd_rx_request_event_w_value(event);
+                uint8_t descriptor_type = ((wValue & 0xFF00U) >> 8);
+                uint8_t descriptor_index = wValue & 0xFFU;
+
+                switch (descriptor_type)
+                {
+                    case GET_DESCRIPTOR_WVALUE_TYPE_DEVICE:
+                    {
+                        break;
+                    }
+
+                    case GET_DESCRIPTOR_WVALUE_TYPE_CONFIGURATION:
+                    {
+                        // preorder iterator should guarantee descriptors sent in proper order!!
+                        break;
+                    }
+
+                    case GET_DESCRIPTOR_WVALUE_TYPE_STRING:
+                    {
+                        break;
+                    }
+
+                    default:
+                    {
+                        /* Unsupported descriptor. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                /* Format of request is invalid. */
+                endpoint_zero_stall(me);
+            }
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_INTERFACE:
+        {
+            /* GET_INTERFACE() requests invalid while in address state. */
+            endpoint_zero_stall(me);
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_GET_STATUS:
+        {
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_IN &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_w_value(event) == 0 &&
+                cusbd_rx_request_event_w_index(event) == 0 && /* Only device or ep0 can only be addressed while in configured state. */
+                cusbd_rx_request_event_w_length(event) == 2)
+            {
+                switch (cusbd_rx_request_event_recipient(event))
+                {
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE:
+                    {
+                        /* Note that remote wakeup and self-powered statuses are properties of the 
+                        device. These values are not taken from the configuration descriptor. */
+                        uint16_t status = 0;
+
+                        if (me->self_powered)
+                        {
+                            status |= (1U << 0);
+                        }
+                        if (me->remote_wakeup)
+                        {
+                            status |= (1U << 1);
+                        }
+
+                        status = ECU_CPU_TO_LE16_RUNTIME(status);
+                        endpoint_zero_send(me, &status, sizeof(status));
+                        break;
+                    }
+
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_INTERFACE:
+                    {
+                        /* Only device or ep0 can only be addressed while in configured state. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+
+                    case CUSBD_RX_REQUEST_EVENT_RECIPIENT_ENDPOINT:
+                    {
+                        uint16_t status = 0; /* Do not support halting for endpoint 0 so always send back a halt bit of 0. */
+                        endpoint_zero_send(me, &status, sizeof(status));
+                        break;
+                    }
+
+                    default:
+                    {
+                        /* Invalid recipient. */
+                        endpoint_zero_stall(me);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                /* Format of request is invalid. */
+                endpoint_zero_stall(me);
+            }
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_ADDRESS:
+        {
+            uint16_t address = cusbd_rx_request_event_w_value(event);
+
+            if (cusbd_rx_request_event_direction(event) == CUSBD_RX_REQUEST_EVENT_DIRECTION_OUT &&
+                cusbd_rx_request_event_type(event) == CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD &&
+                cusbd_rx_request_event_recipient(event) == CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE &&
+                address < MAX_ADDRESS &&
+                cusbd_rx_request_event_w_index(event) == 0 &&
+                cusbd_rx_request_event_w_length(event) == 0)
+            {
+                if (address == 0)
+                {
+                    me->address = 0;
+                    device_set_address(me);
+                    ecu_hsm_change_state(me, &DEFAULT_STATE);
+                }
+                else
+                {
+                    me->address = address & 0xFFU;
+                    device_set_address(me);
+                }
+            }
+            else
+            {
+                /* Format of request is invalid. */
+                endpoint_zero_stall(me);
+            }
+            break;
+        }
+
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_CONFIGURATION:
+        {
+            !!!!!!!!!!!! TODO Stopped here!!
             if (config > 0)
             {
                 ecu_hsm_change_state(me, &CONFIGURED_STATE);
@@ -344,12 +657,12 @@ static void process_setup_packet_address_state(struct cusbd *me,
             break;
         }
 
-        case CUSBD_REQUEST_VALUE_SET_DESCRIPTOR:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_DESCRIPTOR:
         {
             break;
         }
 
-        case CUSBD_REQUEST_VALUE_SET_FEATURE:
+        case CUSBD_RX_REQUEST_EVENT_VALUE_SET_FEATURE:
         {
             break;
         }
@@ -360,24 +673,9 @@ static void process_setup_packet_address_state(struct cusbd *me,
         default:
         {
             /* Any unsupported requests. */
-            status = CUSBD_REQUEST_STATUS_STALL;
+            (*me->ep0.handshake)(CUSBD_ENDPOINT_STATUS_STALL, me->ep0.obj);
             break;
         }
-    }
-
-#pragma message("TODO: Need to know how to ACK, NAK, and STALL.")
-
-    if (status == CUSBD_REQUEST_STATUS_ACK)
-    {
-        // ACK.
-    }
-    else if (status == CUSBD_REQUEST_STATUS_NAK)
-    {
-        // NAK
-    }
-    else
-    {
-        // STALL if STALL or UNPROCESSED.
     }
 }
 
@@ -518,12 +816,14 @@ static bool DEFAULT_STATE_HANDLER(struct cusbd *me, const void *event)
     ECU_RUNTIME_ASSERT( (me && event) );
     ECU_RUNTIME_ASSERT( (cusbd_valid(me)) );
     bool handled = true;
+    const struct cusbd_event *e = (const struct cusbd_event *)event;
 
-    switch (cusbd_event_id((const struct cusbd_event *)event))
+    switch (cusbd_event_id(e))
     {
-        case CUSBD_EVENT_ID_SETUP_PACKET_RX:
+        case CUSBD_RX_REQUEST_EVENT_ID:
         {
-            process_setup_packet_default_state(me, (const struct cusbd_setup_packet_rx_event *)event);
+            const struct cusbd_rx_request_event *rx_request_event = (const struct cusbd_rx_request_event *)e;
+            process_setup_packet_default_state(me, rx_request_event);
             break;
         }
 
@@ -639,7 +939,7 @@ void cusbd_add_configuration(struct cusbd *me,
     ECU_RUNTIME_ASSERT( (me && configuration) );
     ECU_RUNTIME_ASSERT( (cusbd_valid(me)) );
     ECU_RUNTIME_ASSERT( (cusbd_configuration_valid(configuration)) );
-    ecu_ntnode_push_back(&me->base.ntnode, &configuration->base.ntnode);
+    ecu_ntnode_push_child_back(&me->base.ntnode, &configuration->base.ntnode);
 }
 
 void cusbd_add_manufacturer_string(struct cusbd *me,

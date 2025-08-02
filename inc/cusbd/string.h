@@ -24,9 +24,6 @@
 #include <stdint.h>
 #include <uchar.h> /* char16_t */
 
-/* CUSB. */
-#include "cusbd/descriptor.h"
-
 /* ECU. */
 #include "ecu/dlist.h"
 #include "ecu/endian.h"

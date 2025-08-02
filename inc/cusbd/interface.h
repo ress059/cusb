@@ -20,12 +20,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusbd/descriptor.h"
-
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
+#include "ecu/ntree.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
@@ -161,9 +159,8 @@ struct cusbd_interface_descriptor
  */
 struct cusbd_interface
 {
-    /// @brief Inherit cusbd_descriptor base class.
-    /// @warning MUST be first member.
-    struct cusbd_descriptor base;
+    /// @brief All descriptors represented as nodes in a tree.
+    struct ecu_ntnode ntnode;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.
@@ -194,9 +191,8 @@ struct cusbd_interface
  */
 struct cusbd_alternate_interface
 {
-    /// @brief Inherit cusbd_descriptor base class.
-    /// @warning MUST be first member.
-    struct cusbd_descriptor base;
+    /// @brief All descriptors represented as nodes in a tree.
+    struct ecu_ntnode ntnode;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.

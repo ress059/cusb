@@ -22,7 +22,6 @@
 
 /* CUSB. Include all headers so user only includes cusbd.h. */
 #include "cusbd/configuration.h"
-#include "cusbd/descriptor.h"
 #include "cusbd/endpoint.h"
 #include "cusbd/event.h"
 #include "cusbd/interface.h"
@@ -32,6 +31,8 @@
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
 #include "ecu/endian.h"
+#include "ecu/hsm.h"
+#include "ecu/ntree.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
@@ -59,6 +60,11 @@
  */
 #define CUSBD_OBJ_UNUSED \
     ((void *)0)
+
+/**
+ * @brief TODO:
+ */
+#define CUSBD_API_CTOR()
     
 /**
  * @brief Creates a @ref cusbd_device_descriptor at either
@@ -117,19 +123,6 @@
 /*------------------------------------------------------------*/
 /*---------------------------- CUSBD -------------------------*/
 /*------------------------------------------------------------*/
-
-// /**
-//  * @brief String index. I.e. iManufacturer, iProduct, iSerialNumber,
-//  * iConfiguration, iInterface, etc.
-//  */
-// enum cusbd_string_id
-// {
-//     CUSBD_MANUFACTURER_STRING_ID = 1,   /**< ID given to all manufacturer strings. */
-//     CUSBD_PRODUCT_STRING_ID,            /**< ID given to all product strings. */
-//     CUSBD_SERIAL_NUMBER_STRING_ID,      /**< ID given to all serial number strings. */
-//     /*********************************/
-//     CUSBD_USER_STRING_ID_BEGIN          /**< Strings attached to descriptors start at this ID. */
-// };
 
 /**
  * @brief Data in a standard device descriptor. Using
@@ -192,15 +185,72 @@ struct cusbd_device_descriptor
 } ECU_ATTRIBUTE_PACKED;
 
 /**
+ * @brief Dependency injection. Links library with user's 
+ * hardware-specific code that controls endpoint0 and the
+ * USB device. Must be initialized at compile-time.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
+ */
+struct cusbd_api
+{
+    /// @brief Called when remote wakeup request event dispatched and
+    /// device is capable of waking up host (remote wakeup enabled).
+    void (*const device_remote_wakeup)(void *device_obj);
+
+    /// @brief Called when a SET_ADDRESS() request is successfully processed.
+    /// USB device's address must be set to the supplied value.
+    void (*const device_set_address)(uint8_t address, void *device_obj);
+
+    /// @brief Optional object to pass to device API.
+    void *const device_obj;
+
+    /// @brief Called when device first starts up. Endpoint0 must be
+    /// configured with the supplied packet size. This value originates
+    /// from the device descriptor.
+    void (*const endpoint0_configure)(uint8_t bMaxPacketSize0, void *endpoint0_obj);
+
+    /// @brief Called when user requests endpoint0 to be halted or when
+    /// endpoint0 is halted from a SET_FEATURE() request.
+    void (*const endpoint0_halt)(void *endpoint0_obj);
+
+    /// @brief Called when the device must reply back to the host with
+    /// a request error after processing the setup packet of a control transfer.
+    void (*const endpoint0_stall)(void *endpoint0_obj);
+
+    /// @brief Called when the device must send data back to the host
+    /// after processing the setup packet of a control transfer.
+    void (*const endpoint0_send)(const void *data, size_t len, void *endpoint0_obj);
+
+    /// @brief Optional object to pass to endpoint0 API.
+    void *const endpoint0_obj;
+};
+
+/**
  * @brief Object representing a USB device. This is the main
  * object that organizes all of the device's descriptors
  * and behavior.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
  */
 struct cusbd
 {
-    /// @brief Inherit @ref cusbd_descriptor base class.
-    /// @warning MUST be first member.
-    struct cusbd_descriptor base;
+    /// @brief All descriptors represented as nodes in a tree.
+    struct ecu_ntnode ntnode;
+
+    /// @brief Currently active configuration set by a SET_CONFIGURATION()
+    /// request. NULL if no configuration active, meaning the device is
+    /// either in the Default or Address state.
+    struct cusbd_configuration *active_configuration;
+
+    /// @brief Address of device set by host in SET_ADDRESS().
+    /// Resets to 0.
+    uint8_t address;
+
+    /// @brief Dependency injection. Links library with user's
+    /// hardware-specific code that controls the device.
+    const struct cusbd_api *api;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust iManufacturer, bNumConfigurations, etc
@@ -209,14 +259,8 @@ struct cusbd
     /// little endian.
     struct cusbd_device_descriptor descriptor;
 
-    /// @brief Device's string descriptor zero, which lists
-    /// the languages this device supports. Optional. Equals 
-    /// @ref CUSBD_STRING_ZERO_UNUSED if unused.
-    /// @warning If this is unused the device can not use any
-    /// string descriptors. This means no cusbd_add_string()
-    /// functions can be used and no cusbd_add_string() functions
-    /// can be used on any of the device's descriptors.
-    const struct cusbd_string_zero *string0;
+    /// @brief Device behavior modeled with hierarchical state machine.
+    struct ecu_hsm hsm;
 
     /// @brief All manufacturer strings associated with this
     /// device. iManufacturer. Optional. Empty if unused.
@@ -228,53 +272,31 @@ struct cusbd
     /// @warning Device must use string0 if this is used.
     struct ecu_dlist product_strings;
 
+    /// @brief Part of device's status returned in GET_STATUS().
+    /// True = remote wakeup enabled. False = remote 
+    /// wakeup disabled. Updated in SET_FEATURE() and CLEAR_FEATURE().
+    /// Reset to 0 when device is reset or first starting up.
+    bool remote_wakeup;
+
+    /// @brief Part of device's status returned in GET_STATUS().
+    /// Set in constructor and updated by user during runtime.
+    /// True = device is currently self powered. 
+    /// False = device is currently bus powered.
+    bool self_powered;
+
     /// @brief All serial number strings associated with this
     /// device. iSerialNumber. Optional. Empty if unused.
     /// @warning Device must use string0 if this is used.
     struct ecu_dlist serial_number_strings;
 
-    /// @brief True = remote wakeup enabled. 
-    /// False = remote wakeup disabled.
-    bool remote_wakeup;
-
-    /// @brief bConfigurationValue of the currently active 
-    /// configuration. Must be 0 if device is unconfigured.
-    uint8_t configuration_value;
-
-    /// @brief Dependency injection. Links library with hardware-specific 
-    /// code controlling the USB device controller.
-    struct
-    {
-        /// @brief Called when the characteristics of an endpoint
-        /// must change due to a SET_CONFIGURATION() or SET_INTERFACE()
-        /// being processed. The endpoint's existing and new characteristics
-        /// can be retrieved using the cusbd_endpoint() API. 
-        void (*ep_configure)(const struct cusbd_endpoint *me, void *obj);
-
-        /// @brief Called when a SET_ADDRESS() request is successfully processed.
-        /// User must set the USB device's address to the value supplied.
-        void (*set_address)(uint8_t address, void *obj);
-
-        /// @brief Optional object passed into API functions above.
-        void *obj;
-    } device;
-
-    /// @brief Dependency injection. Links library with hardware-specific
-    /// code controlling endpoint0.
-    struct
-    {
-        /// @brief Called when device must send data back to host during
-        /// enumeration.
-        void (*send)(const void *data, size_t len, void *obj);
-
-        /// @brief Called when request is processed. Function indicates
-        /// whether ACK, NAK, or STALL should be sent back to the host.
-        /// This should be done in either Data or Status stage.
-        void (*handshake)(enum cusbd_endpoint_status status, void *obj);
-
-        /// @brief Optional object passed into API functions above.
-        void *obj;
-    } ep0;
+    /// @brief Device's string descriptor zero, which lists
+    /// the languages this device supports. Optional. Equals 
+    /// @ref CUSBD_STRING_ZERO_UNUSED if unused.
+    /// @warning If this is unused the device can not use any
+    /// string descriptors. This means no cusbd_add_string()
+    /// functions can be used and no cusbd_add_string() functions
+    /// can be used on any of the device's descriptors.
+    const struct cusbd_string_zero *string0;
 };
 
 /*------------------------------------------------------------*/

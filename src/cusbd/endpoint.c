@@ -18,9 +18,6 @@
 /* STDLib. */
 #include <string.h> /* memcpy. */
 
-/* CUSB. */
-#include "cusbd/visitor/visitor.h"
-
 /* ECU. */
 #include "ecu/asserter.h"
 
@@ -97,6 +94,15 @@ ECU_ASSERT_DEFINE_NAME("cusbd/endpoint.c")
 /*------------------------------------------------------------*/
 
 /**
+ * @brief Returns true if supplied endpoint API was 
+ * properly constructed via @ref CUSBD_ENDPOINT_API_CTOR().
+ * False otherwise.
+ * 
+ * @param api API to check.
+ */
+static bool endpoint_api_valid(const struct cusbd_endpoint_api *api);
+
+/**
  * @brief Returns true if supplied descriptor was properly
  * constructed via @ref CUSBD_ENDPOINT_DESCRIPTOR_CTOR().
  * False otherwise.
@@ -105,24 +111,30 @@ ECU_ASSERT_DEFINE_NAME("cusbd/endpoint.c")
  */
 static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *descriptor);
 
-/**
- * @brief Override of @ref v_cusbd_descriptor_accept().
- */
-static void o_accept(struct cusbd_endpoint *me, struct cusbd_visitor *visitor);
-
-/**
- * @brief Override of @ref v_cusbd_descriptor_caccept().
- */
-static void o_caccept(const struct cusbd_endpoint *me, struct cusbd_cvisitor *visitor);
-
 /*------------------------------------------------------------*/
 /*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
 /*------------------------------------------------------------*/
 
+static bool endpoint_api_valid(const struct cusbd_endpoint_api *api)
+{
+    ECU_RUNTIME_ASSERT( (api) );
+    bool status = false;
+
+    if (api->configure && 
+        api->halt && 
+        api->send && 
+        api->stall)
+    {
+        status = true;
+    }
+
+    return status;
+}
+
 static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *descriptor)
 {
-    bool status = false;
     ECU_RUNTIME_ASSERT( (descriptor) );
+    bool status = false;
     uint8_t bEndpointAddress = descriptor->bEndpointAddress;
 
 #pragma message("TODO: Figure out wMaxPacketSize and bInterval")
@@ -165,20 +177,6 @@ static bool endpoint_descriptor_valid(const struct cusbd_endpoint_descriptor *de
     return status;
 }
 
-static void o_accept(struct cusbd_endpoint *me, struct cusbd_visitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_endpoint(visitor, me);
-}
-
-static void o_caccept(const struct cusbd_endpoint *me, struct cusbd_cvisitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_endpoint(visitor, me);
-}
-
 /*------------------------------------------------------------*/
 /*---------------------- STATIC ASSERTS ----------------------*/
 /*------------------------------------------------------------*/
@@ -186,29 +184,22 @@ static void o_caccept(const struct cusbd_endpoint *me, struct cusbd_cvisitor *vi
 ECU_STATIC_ASSERT( (sizeof(struct cusbd_endpoint_descriptor) == (size_t)7),
                     "Endpoint descriptor is 7 bytes." );
 
-ECU_STATIC_ASSERT( (CUSBD_DESCRIPTOR_IS_BASEOF(base, struct cusbd_endpoint)),
-                    "cusbd_endpoint must inherit cusbd_descriptor." );
-
 /*------------------------------------------------------------*/
 /*---------------- CUSBD ENDPOINT MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
 
 void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
+                         const struct cusbd_endpoint_api *api,
                          const struct cusbd_endpoint_descriptor *descriptor)
 {
     ECU_RUNTIME_ASSERT( (me && descriptor) );
+    ECU_RUNTIME_ASSERT( (endpoint_api_valid(api)) );
     ECU_RUNTIME_ASSERT( (endpoint_descriptor_valid(descriptor)) );
 
-    static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
-        &o_accept,
-        &o_caccept,
-        &cusbd_endpoint_valid
-    );
-
-    cusbd_descriptor_ctor(&me->base, CUSBD_ENDPOINT_BDESCRIPTORTYPE);
-    me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
+    ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, (ecu_object_id)CUSBD_ENDPOINT_BDESCRIPTORTYPE);
+    me->api = api;
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_endpoint_descriptor));
-    me->halt = false;
+    me->halted = false;
 }
 
 enum cusbd_endpoint_direction cusbd_endpoint_direction(const struct cusbd_endpoint *me)
@@ -217,7 +208,7 @@ enum cusbd_endpoint_direction cusbd_endpoint_direction(const struct cusbd_endpoi
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(me)) );
     enum cusbd_endpoint_direction dir = CUSBD_ENDPOINT_DIRECTION_OUT;
 
-    if (me->descriptor.bEndpointAddress & BENDPOINTADDRESS_DIRECTION_BITMASK)
+    if (me->descriptor->bEndpointAddress & BENDPOINTADDRESS_DIRECTION_BITMASK)
     {
         dir = CUSBD_ENDPOINT_DIRECTION_IN;
     }
@@ -229,11 +220,18 @@ enum cusbd_endpoint_direction cusbd_endpoint_direction(const struct cusbd_endpoi
     return dir;
 }
 
+bool cusbd_endpoint_halted(const struct cusbd_endpoint *me)
+{
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(me)) );
+    return (me->halted);
+}
+
 size_t cusbd_endpoint_number(const struct cusbd_endpoint *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(me)) );
-    return (me->descriptor.bEndpointAddress & BENDPOINTADDRESS_NUMBER_BITMASK);
+    return (me->descriptor->bEndpointAddress & BENDPOINTADDRESS_NUMBER_BITMASK);
 }
 
 enum cusbd_endpoint_sync_type cusbd_endpoint_sync_type(const struct cusbd_endpoint *me)
@@ -243,7 +241,7 @@ enum cusbd_endpoint_sync_type cusbd_endpoint_sync_type(const struct cusbd_endpoi
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_transfer_type(me) == CUSBD_ENDPOINT_TRANSFER_TYPE_ISOCHRONOUS) );
     enum cusbd_endpoint_sync_type sync_type = CUSBD_ENDPOINT_SYNC_TYPE_NOSYNC;
 
-    switch (me->descriptor.bmAttributes & BMATTRIBUTES_SYNC_TYPE_BITMASK)
+    switch (me->descriptor->bmAttributes & BMATTRIBUTES_SYNC_TYPE_BITMASK)
     {
         case BMATTRIBUTES_SYNC_TYPE_NOSYNC:
         {
@@ -285,7 +283,7 @@ enum cusbd_endpoint_transfer_type cusbd_endpoint_transfer_type(const struct cusb
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_valid(me)) );
     enum cusbd_endpoint_transfer_type transfer_type = CUSBD_ENDPOINT_TRANSFER_TYPE_CONTROL;
 
-    switch (me->descriptor.bmAttributes & BMATTRIBUTES_TRANSFER_TYPE_BITMASK)
+    switch (me->descriptor->bmAttributes & BMATTRIBUTES_TRANSFER_TYPE_BITMASK)
     {
         case BMATTRIBUTES_TRANSFER_TYPE_CONTROL:
         {
@@ -328,7 +326,7 @@ enum cusbd_endpoint_usage_type cusbd_endpoint_usage_type(const struct cusbd_endp
     ECU_RUNTIME_ASSERT( (cusbd_endpoint_transfer_type(me) == CUSBD_ENDPOINT_TRANSFER_TYPE_ISOCHRONOUS) );
     enum cusbd_endpoint_usage_type usage_type = CUSBD_ENDPOINT_USAGE_TYPE_RESERVED;
 
-    switch (me->descriptor.bmAttributes & BMATTRIBUTES_USAGE_TYPE_BITMASK)
+    switch (me->descriptor->bmAttributes & BMATTRIBUTES_USAGE_TYPE_BITMASK)
     {
         case BMATTRIBUTES_USAGE_TYPE_DATA:
         {
@@ -368,7 +366,8 @@ enum cusbd_endpoint_usage_type cusbd_endpoint_usage_type(const struct cusbd_endp
 bool cusbd_endpoint_valid(const struct cusbd_endpoint *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
-    return (cusbd_descriptor_valid(&me->base) &&
-            cusbd_descriptor_type(&me->base) == CUSBD_ENDPOINT_BDESCRIPTORTYPE &&
+    return (ecu_ntnode_valid(&me->ntnode) &&
+            ecu_ntnode_id(&me->ntnode) == (ecu_object_id)CUSBD_ENDPOINT_BDESCRIPTORTYPE &&
+            endpoint_api_valid(&me->api) &&
             endpoint_descriptor_valid(&me->descriptor));
 }

@@ -49,11 +49,11 @@
  */
 enum cusbd_event_id
 {
-    CUSBD_EVENT_ID_RESERVED,            /**< Dummy event ID. Allows library to detect if event was constructed. ID 0-initialized to this value if not. */
+    CUSBD_RESERVED_EVENT_ID,        /**< Dummy event ID. Allows library to detect if event was constructed. ID 0-initialized to this value if not. */
     /*****************************/
-    CUSBD_EVENT_ID_SETUP_PACKET_RX,     /**< Device received a request (setup packet in a control transfer) from the host. */
+    CUSBD_RX_REQUEST_EVENT_ID,      /**< Device received a request (setup packet in a control transfer) from the host. */
     /*****************************/
-    CUSBD_EVENT_ID_COUNT                /**< Total number of event IDs. */
+    CUSBD_TOTAL_EVENT_IDS           /**< Total number of event IDs. */
 };
 
 /**
@@ -80,7 +80,7 @@ struct cusbd_event
  * @warning Will always be stored in little endian, not
  * native endianness.
  */
-struct cusbd_setup_packet
+struct cusbd_request
 {
     /// @brief Bitmap. Type of request.
     uint8_t bmRequestType;
@@ -109,18 +109,37 @@ struct cusbd_setup_packet
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusbd_setup_packet_rx_event
+struct cusbd_rx_request_event
 {
     /// @brief Inherit @ref cusbd_event base class.
     /// @warning MUST be first member.
     struct cusbd_event base;
 
-    /// @brief Request data. A local copy is stored
-    /// in case the user's original is destroyed.
+    /// @brief Request data in setup packet. A local copy is 
+    /// stored in case the user's original is destroyed.
     /// @warning This struct is packed and will always 
     /// be in little endian.
-    struct cusbd_setup_packet packet;
+    struct cusbd_request packet;
 };
+
+/*------------------------------------------------------------*/
+/*-------------------- CUSBD_BUS_POWERED_EVENT ---------------*/
+/*------------------------------------------------------------*/
+
+struct cusbd_power_source_change_event
+{
+    /// @brief Inherit @ref cusbd_event base class.
+    /// @warning MUST be first member.
+    struct cusbd_event base;
+};
+
+
+
+suspended_event
+resume_event
+remote_wakeup_event
+
+
 
 /*------------------------------------------------------------*/
 /*----------------------- PUBLIC FUNCTIONS -------------------*/
@@ -147,7 +166,7 @@ extern enum cusbd_event_id cusbd_event_id(const struct cusbd_event *me);
 extern bool cusbd_event_valid(const struct cusbd_event *me);
 
 /*------------------------------------------------------------*/
-/*----------------- CUSBD_STD_REQUEST_RX_EVENT ---------------*/
+/*------------------- CUSBD_RX_REQUEST_EVENT -----------------*/
 /*------------------------------------------------------------*/
 /**
  * @name cusbd_setup_packet_rx_event
@@ -166,8 +185,8 @@ extern bool cusbd_event_valid(const struct cusbd_event *me);
  * @param packet Setup packet received from host. Must
  * be directly mem-copied. Library will handle endianness.
  */
-extern void cusbd_setup_packet_rx_event_ctor(struct cusbd_setup_packet_rx_event *me,
-                                             const struct cusbd_setup_packet *packet);
+extern void cusbd_rx_request_event_ctor(struct cusbd_rx_request_event *me,
+                                        const struct cusbd_request *packet);
 /**@}*/
 
 #ifdef __cplusplus

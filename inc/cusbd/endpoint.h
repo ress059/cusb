@@ -19,13 +19,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* CUSB. */
-#include "cusbd/descriptor.h"
-
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
 #include "ecu/endian.h"
+#include "ecu/ntree.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
@@ -37,6 +35,42 @@
  */
 #define CUSBD_ENDPOINT_BDESCRIPTORTYPE \
     ((uint8_t)0x05)
+
+/**
+ * @brief Supplied when optional objects in endpoint callbacks
+ * are unused.
+ */
+#define CUSBD_ENDPOINT_OBJ_UNUSED \
+    ((void *)0)
+
+/**
+ * @brief Creates a @ref cusbd_endpoint_api at compile-time.
+ * Example usage:
+ * @code{.c}
+ * static const struct cusbd_endpoint_api api = CUSBD_ENDPOINT_API_CTOR(
+ *      &ep_configure, &ep_halt, ...
+ * );
+ * @endcode
+ * 
+ * @param configure_ See @ref cusbd_endpoint_api.configure.
+ * @param halt_ See @ref cusbd_endpoint_api.halt.
+ * @param send_ See @ref cusbd_endpoint_api.send.
+ * @param stall_ See @ref cusbd_endpoint_api.stall.
+ * @param obj_ Optional object passed into API calls.
+ * Supply @ref CUSBD_ENDPOINT_OBJ_UNUSED if unused.
+ */
+#define CUSBD_ENDPOINT_API_CTOR(configure_,     \
+                                halt_,          \
+                                send_,          \
+                                stall_,         \
+                                obj_)           \
+    {                                           \
+        .configure = configure_,                \
+        .halt = halt_,                          \
+        .send = send_,                          \
+        .stall = stall_,                        \
+        .obj = obj_                             \
+    }
 
 /**
  * @brief Creates a @ref cusbd_endpoint_descriptor at
@@ -81,18 +115,6 @@
 /*------------------------------------------------------------*/
 /*----------------------- CUSBD ENDPOINT ---------------------*/
 /*------------------------------------------------------------*/
-#pragma message("TODO: Update descriptions!!")
-// /**
-//  * @brief Type given to endpoint ID (@ref cusbd_endpoint.id).
-//  * This allows the library to implicitly typecast between
-//  * @ref cusbd_endpoint_reserved_ids and the user-specified
-//  * endpoint IDs. Typedeffed incase this has to change in
-//  * the future.
-//  * 
-//  * @warning This must be a signed type so reserved enumerations
-//  * less than 0 can be stored.
-//  */
-// typedef int16_t cusbd_endpoint_id_t;
 
 /**
  * @brief Status of endpoint.
@@ -153,17 +175,6 @@ enum cusbd_endpoint_usage_type
     CUSBD_ENDPOINT_USAGE_TYPE_RESERVED              /**< [5:4] = 11 */
 };
 
-// /**
-//  * @brief Reserved endpoint IDs.
-//  */
-// enum cusbd_endpoint_reserved_ids
-// {
-//     CUSBD_ENDPOINT0_OUT_ID = -2,     /**< RESERVED. ID assigned to control endpoint OUT. */
-//     CUSBD_ENDPOINT0_IN_ID = -1,      /**< RESERVED. ID assigned to control endpoint IN. */
-//     /***************************/
-//     CUSBD_ENDPOINT_USER_ID_BEGIN     /**< Start of user-specified endpoint IDs. Will always be 0. */
-// };
-
 /**
  * @brief Data in a standard endpoint descriptor.
  * This will always be in little endian format.
@@ -197,6 +208,37 @@ struct cusbd_endpoint_descriptor
 } ECU_ATTRIBUTE_PACKED;
 
 /**
+ * @brief Dependency injection. Links library with user's 
+ * hardware-specific code that controls the endpoint. Must 
+ * be initialized at compile-time.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
+ */
+struct cusbd_endpoint_api
+{
+    /// @brief Called when device first starts up or the characteristics 
+    /// of an endpoint must change due to a SET_CONFIGURATION() or SET_INTERFACE()
+    /// being processed. The endpoint's new characteristics can be retrieved 
+    /// using the cusbd_endpoint() API on the supplied cusbd_endpoint.
+    void (*const configure)(const struct cusbd_endpoint *me, void *obj);
+
+    /// @brief Called when user requests endpoint to be halted or endpoint
+    /// is halted from a SET_FEATURE() request.
+    void (*const halt)(const struct cusbd_endpoint *me, void *obj);
+
+    /// @brief Called when data has to be sent across the supplied 
+    /// endpoint's pipe.
+    void (*const send)(const struct cusbd_endpoint *me, const void *data, size_t len, void *obj);
+
+    /// @brief Called when endpoint must reply back to host with STALL.
+    void (*const stall)(const struct cusbd_endpoint *me, void *obj);
+
+    /// @brief Optional object passed into endpoint API.
+    void *const obj;
+};
+
+/**
  * @brief Object representing a USB endpoint descriptor.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
@@ -206,9 +248,12 @@ struct cusbd_endpoint_descriptor
  */
 struct cusbd_endpoint
 {
-    /// @brief Inherit cusbd_descriptor base class.
-    /// @warning MUST be first member.
-    struct cusbd_descriptor base;
+    /// @brief All descriptors represented as nodes in a tree.
+    struct ecu_ntnode ntnode;
+
+    /// @brief Dependency injection. Links library with user's
+    /// hardware-specific code that controls the endpoint.
+    const struct cusbd_endpoint_api *api;
 
     /// @brief Descriptor data. This is stored by reference
     /// since the endpoint descriptor will never need to be changed. 
@@ -219,7 +264,7 @@ struct cusbd_endpoint
 
     /// @brief True = endpoint halted and always returns STALL.
     /// False = endpoint active.
-    bool halt;
+    bool halted;
 };
 
 /*------------------------------------------------------------*/
@@ -229,13 +274,14 @@ struct cusbd_endpoint
 #ifdef __cplusplus
 extern "C" {
 #endif
-#pragma message("TODO: Update descriptions!!")
+
 /**
  * @name Constructor
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
+ * @pre @p api previously constructed via @ref CUSBD_ENDPOINT_API_CTOR().
  * @pre @p descriptor previously constructed via @ref CUSBD_ENDPOINT_DESCRIPTOR_CTOR().
  * @brief Endpoint descriptor constructor.
  * 
@@ -245,9 +291,12 @@ extern "C" {
  * since there is never a descriptor for endpoint0.
  * 
  * @param me Endpoint descriptor to construct.
+ * @param api Collection of user-defined functions that control the endpoint.
+ * See @ref cusbd_endpoint_api.
  * @param descriptor The endpoint descriptor's data.
  */
 extern void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
+                                const struct cusbd_endpoint_api *api,
                                 const struct cusbd_endpoint_descriptor *descriptor);
 /**@}*/
 
@@ -256,6 +305,8 @@ extern void cusbd_endpoint_ctor(struct cusbd_endpoint *me,
  */
 /**@{*/
 extern enum cusbd_endpoint_direction cusbd_endpoint_direction(const struct cusbd_endpoint *me);
+
+extern bool cusbd_endpoint_halted(const struct cusbd_endpoint *me);
 
 extern size_t cusbd_endpoint_number(const struct cusbd_endpoint *me);
 

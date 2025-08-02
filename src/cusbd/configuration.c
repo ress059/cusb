@@ -21,7 +21,6 @@
 /* CUSB. */
 #include "cusbd/interface.h"
 #include "cusbd/string.h"
-#include "cusbd/visitor/visitor.h"
 
 /* ECU. */
 #include "ecu/asserter.h"
@@ -45,16 +44,6 @@ ECU_ASSERT_DEFINE_NAME("cusbd/configuration.c")
  */
 static bool configuration_descriptor_valid(const struct cusbd_configuration_descriptor *descriptor);
 
-/**
- * @brief Override of @ref v_cusbd_descriptor_accept().
- */
-static void o_accept(struct cusbd_configuration *me, struct cusbd_visitor *visitor);
-
-/**
- * @brief Override of @ref v_cusbd_descriptor_caccept().
- */
-static void o_caccept(const struct cusbd_configuration *me, struct cusbd_cvisitor *visitor);
-
 /*------------------------------------------------------------*/
 /*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
 /*------------------------------------------------------------*/
@@ -76,29 +65,12 @@ static bool configuration_descriptor_valid(const struct cusbd_configuration_desc
     return status;
 }
 
-static void o_accept(struct cusbd_configuration *me, struct cusbd_visitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_accept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_visitor_visit_configuration(visitor, me);
-}
-
-static void o_caccept(const struct cusbd_configuration *me, struct cusbd_cvisitor *visitor)
-{
-    /* Do not assert valid() since that is centralized in the v_cusbd_descriptor_caccept() function. */
-    ECU_RUNTIME_ASSERT( (me && visitor) );
-    v_cusbd_cvisitor_visit_configuration(visitor, me);
-}
-
 /*------------------------------------------------------------*/
 /*---------------------- STATIC ASSERTS ----------------------*/
 /*------------------------------------------------------------*/
 
 ECU_STATIC_ASSERT( (sizeof(struct cusbd_configuration_descriptor) == (size_t)9),
                     "Configuration descriptor is 9 bytes." );
-
-ECU_STATIC_ASSERT( (CUSBD_DESCRIPTOR_IS_BASEOF(base, struct cusbd_configuration)),
-                    "cusbd_configuration must inherit cusbd_descriptor." );
 
 /*------------------------------------------------------------*/
 /*------------ CUSBD CONFIGURATION MEMBER FUNCTIONS ----------*/
@@ -110,14 +82,7 @@ void cusbd_configuration_ctor(struct cusbd_configuration *me,
     ECU_RUNTIME_ASSERT( (me && descriptor) );
     ECU_RUNTIME_ASSERT( (configuration_descriptor_valid(descriptor)) );
 
-    static const struct cusbd_descriptor_vtable vtable = CUSBD_DESCRIPTOR_VTABLE_CTOR(
-        &o_accept, 
-        &o_caccept, 
-        &cusbd_configuration_valid
-    );
-
-    cusbd_descriptor_ctor(&me->base, CUSBD_CONFIGURATION_BDESCRIPTORTYPE);
-    me->base.vptr = &vtable; /* MUST be AFTER cusbd_descriptor_ctor(). */
+    ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, (ecu_object_id)CUSBD_CONFIGURATION_BDESCRIPTORTYPE);
     memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_configuration_descriptor));
     ecu_dlist_ctor(&me->strings);
 }
@@ -131,11 +96,11 @@ void cusbd_configuration_add_interface(struct cusbd_configuration *me,
     ECU_RUNTIME_ASSERT( (me && interface) );
     ECU_RUNTIME_ASSERT( (cusbd_configuration_valid(me)) );
     ECU_RUNTIME_ASSERT( (cusbd_interface_valid(interface)) );
-    ecu_ntnode_push_back(&me->base.ntnode, &interface->base.ntnode);
+    ecu_ntnode_push_child_back(&me->ntnode, &interface->ntnode);
 }
 
 void cusbd_configuration_add_string(struct cusbd_configuration *me,
-                                   struct cusbd_string *string)
+                                    struct cusbd_string *string)
 {
     /* ECU library asserts if node is already within a list. */
     ECU_RUNTIME_ASSERT( (me && string) );
@@ -147,8 +112,8 @@ void cusbd_configuration_add_string(struct cusbd_configuration *me,
 bool cusbd_configuration_valid(const struct cusbd_configuration *me)
 {
     ECU_RUNTIME_ASSERT( (me) );
-    return (cusbd_descriptor_valid(&me->base) &&
-            cusbd_descriptor_type(&me->base) == CUSBD_CONFIGURATION_BDESCRIPTORTYPE &&
+    return (ecu_ntnode_valid(&me->ntnode) &&
+            ecu_ntnode_id(&me->ntnode) == (ecu_object_id)CUSBD_CONFIGURATION_BDESCRIPTORTYPE &&
             configuration_descriptor_valid(&me->descriptor) &&
             ecu_dlist_valid(&me->strings));
 }
