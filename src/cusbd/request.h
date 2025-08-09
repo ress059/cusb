@@ -1,8 +1,7 @@
 /**
  * @file
- * @brief Common functionality for all USB requests.
- * This does not (and should not) be inherited. It can just
- * be a composite inside request-specific visitors.
+ * @brief Contains helpers that extract information from the 
+ * dispatched request (setup packet).
  * 
  * @author Ian Ress
  * @version 0.1
@@ -25,19 +24,6 @@
 #include "cusbd/event.h"
 
 /*------------------------------------------------------------*/
-/*---------------------- DEFINES AND MACROS ------------------*/
-/*------------------------------------------------------------*/
-
-/// @brief Feature selector value. Addressed to device.
-#define CUSBD_FEATURE_SELECTOR_DEVICE_REMOTE_WAKEUP (1U)
-
-/// @brief Feature selector value. Addressed to endpoint.
-#define CUSBD_FEATURE_SELECTOR_ENDPOINT_HALT (0U)
-
-/// @brief Feature selector value. Addressed to device.
-#define CUSBD_FEATURE_SELECTOR_TEST_MODE (2U)
-
-/*------------------------------------------------------------*/
 /*----------------------- CUSBD REQUEST ----------------------*/
 /*------------------------------------------------------------*/
 
@@ -46,10 +32,10 @@
  * in @ref cusbd_setup_packet. Translated
  * to enum for easier and more portable use.
  */
-enum cusbd_rx_request_event_direction
+enum cusbd_request_direction
 {
-    CUSBD_RX_REQUEST_EVENT_DIRECTION_OUT,    /**< OUT. Host to device. Device must only process request. */
-    CUSBD_RX_REQUEST_EVENT_DIRECTION_IN      /**< IN. Device to host. Device must also send data back to host. */
+    CUSBD_REQUEST_DIRECTION_OUT,    /**< OUT. Host to device. Device must only process request. */
+    CUSBD_REQUEST_DIRECTION_IN      /**< IN. Device to host. Device must also send data back to host. */
 };
 
 /**
@@ -57,14 +43,14 @@ enum cusbd_rx_request_event_direction
  * in @ref cusbd_setup_packet. Translated
  * to enum for easier and more portable use.
  */
-enum cusbd_rx_request_event_recipient
+enum cusbd_request_recipient
 {
-    CUSBD_RX_REQUEST_EVENT_RECIPIENT_DEVICE,     /**< Request is for a USB device. */
-    CUSBD_RX_REQUEST_EVENT_RECIPIENT_INTERFACE,  /**< Request is for an interface descriptor. */
-    CUSBD_RX_REQUEST_EVENT_RECIPIENT_ENDPOINT,   /**< Request is for an endpoint descriptor. */
-    CUSBD_RX_REQUEST_EVENT_RECIPIENT_OTHER,      /**< Other. */
+    CUSBD_REQUEST_RECIPIENT_DEVICE,     /**< Request is for a USB device. */
+    CUSBD_REQUEST_RECIPIENT_INTERFACE,  /**< Request is for an interface descriptor. */
+    CUSBD_REQUEST_RECIPIENT_ENDPOINT,   /**< Request is for an endpoint descriptor. */
+    CUSBD_REQUEST_RECIPIENT_OTHER,      /**< Other. */
     /******************************************/
-    CUSBD_RX_REQUEST_EVENT_RECIPIENT_RESERVED    /**< Values reserved for future use by USB. Currently 4 to 31 is reserved. */
+    CUSBD_REQUEST_RECIPIENT_RESERVED    /**< Values reserved for future use by USB. Currently 4 to 31 is reserved. */
 };
 
 /**
@@ -72,38 +58,16 @@ enum cusbd_rx_request_event_recipient
  * in @ref cusbd_setup_packet. Translated
  * to enum for easier and more portable use.
  */
-enum cusbd_rx_request_event_type
+enum cusbd_request_type
 {
-    CUSBD_RX_REQUEST_EVENT_TYPE_STANDARD,    /**< Standard request type. */
-    CUSBD_RX_REQUEST_EVENT_TYPE_CLASS,       /**< Class-specific (HID, printer, etc) request type. */
-    CUSBD_RX_REQUEST_EVENT_TYPE_VENDOR,      /**< Vendor-specific request type. */
-    CUSBD_RX_REQUEST_EVENT_TYPE_RESERVED     /**< Value reserved for future use by USB. */
-};
-
-/**
- * @brief bRequest in @ref cusbd_setup_packet.
- * Translated to enum for easier and more portable 
- * use.
- */
-enum cusbd_rx_request_event_value
-{
-    CUSBD_RX_REQUEST_EVENT_VALUE_GET_STATUS,
-    CUSBD_RX_REQUEST_EVENT_VALUE_CLEAR_FEATURE,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SET_FEATURE,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SET_ADDRESS,
-    CUSBD_RX_REQUEST_EVENT_VALUE_GET_DESCRIPTOR,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SET_DESCRIPTOR,
-    CUSBD_RX_REQUEST_EVENT_VALUE_GET_CONFIGURATION,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SET_CONFIGURATION,
-    CUSBD_RX_REQUEST_EVENT_VALUE_GET_INTERFACE,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SET_INTERFACE,
-    CUSBD_RX_REQUEST_EVENT_VALUE_SYNCH_FRAME,
-    /*****************************************/
-    CUSBD_RX_REQUEST_EVENT_VALUE_RESERVED
+    CUSBD_REQUEST_TYPE_STANDARD,    /**< Standard request type. */
+    CUSBD_REQUEST_TYPE_CLASS,       /**< Class-specific (HID, printer, etc) request type. */
+    CUSBD_REQUEST_TYPE_VENDOR,      /**< Vendor-specific request type. */
+    CUSBD_REQUEST_TYPE_RESERVED     /**< Value reserved for future use by USB. */
 };
 
 /*------------------------------------------------------------*/
-/*---------- CUSBD_RX_REQUEST_EVENT MEMBER FUNCTIONS ---------*/
+/*--------------- CUSBD REQUEST MEMBER FUNCTIONS -------------*/
 /*------------------------------------------------------------*/
 
 #ifdef __cplusplus
@@ -120,7 +84,7 @@ extern "C" {
  * 
  * @param me Request to check.
  */
-extern enum cusbd_rx_request_event_direction cusbd_rx_request_event_direction(const struct cusbd_rx_request_event *me);
+extern enum cusbd_request_direction cusbd_request_direction(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
@@ -128,7 +92,7 @@ extern enum cusbd_rx_request_event_direction cusbd_rx_request_event_direction(co
  * 
  * @param me Request to check.
  */
-extern enum cusbd_rx_request_event_recipient cusbd_rx_request_event_recipient(const struct cusbd_rx_request_event *me);
+extern enum cusbd_request_recipient cusbd_request_recipient(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
@@ -136,15 +100,20 @@ extern enum cusbd_rx_request_event_recipient cusbd_rx_request_event_recipient(co
  * 
  * @param me Request to check.
  */
-extern enum cusbd_rx_request_event_type cusbd_rx_request_event_type(const struct cusbd_rx_request_event *me);
+extern enum cusbd_request_type cusbd_request_type(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
- * @brief Return the actual request. I.e. CLEAR_FEATURE(), GET_DESCRIPTOR(), etc.
+ * @brief Return bRequest value of the setup packet which contains
+ * the actual request. I.e. CLEAR_FEATURE(), GET_DESCRIPTOR(), etc.
+ * Meaning of the value depends on the recipient and request type.
+ * I.e. a value of 1 can be different depending on if this is
+ * a standard request vs class-specific request. It is the application's
+ * responsibility to handle this.
  * 
  * @param me Request to check.
  */
-extern enum cusbd_rx_request_event_value cusbd_rx_request_event_value(const struct cusbd_rx_request_event *me);
+extern uint8_t cusbd_request_brequest(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
@@ -153,16 +122,16 @@ extern enum cusbd_rx_request_event_value cusbd_rx_request_event_value(const stru
  * 
  * @param me Request to check.
  */
-extern uint16_t cusbd_rx_request_event_w_index(const struct cusbd_rx_request_event *me);
+extern uint16_t cusbd_request_windex(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
- * @brief Return wLndex field of the setup packet. Value returned
+ * @brief Return wLength field of the setup packet. Value returned
  * in native endianness for easier use, not little endian.
  * 
  * @param me Request to check.
  */
-extern uint16_t cusbd_rx_request_event_w_length(const struct cusbd_rx_request_event *me);
+extern uint16_t cusbd_request_wlength(const struct cusbd_request *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_request_ctor().
@@ -171,7 +140,7 @@ extern uint16_t cusbd_rx_request_event_w_length(const struct cusbd_rx_request_ev
  * 
  * @param me Request to check.
  */
-extern uint16_t cusbd_rx_request_event_w_value(const struct cusbd_rx_request_event *me);
+extern uint16_t cusbd_request_wvalue(const struct cusbd_request *me);
 /**@}*/
 
 #ifdef __cplusplus

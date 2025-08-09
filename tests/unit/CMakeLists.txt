@@ -36,10 +36,14 @@ target_compile_options(CppUTestExt
 #------------------------------------------------------------#
 add_executable(CUSB_UNIT_TEST
     # Main
-    ${CMAKE_CURRENT_LIST_DIR}/src/main.cpp 
+    ${CMAKE_CURRENT_LIST_DIR}/src/main.cpp
+
+    # Stubs
+    ${CMAKE_CURRENT_LIST_DIR}/stubs/stub_asserter.cpp
 
     # Tests
-    ${CMAKE_CURRENT_LIST_DIR}/src/test_dummy.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/test_cusbd_state.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/test_request.cpp
 )
 
 target_compile_features(CUSB_UNIT_TEST

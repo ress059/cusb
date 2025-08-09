@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     ecu
     GIT_REPOSITORY https://github.com/ress059/ecu.git
-    GIT_TAG        7dfb5a929803dc6e9a859aa150c1bf0a37795f5f # Latest master. TODO: Update to latest once ecu released.
+    GIT_TAG        5152eb713db29b0a9e66bea98866f500e9100a86 # Latest master. TODO: Update to latest once ecu released.
 )
 FetchContent_MakeAvailable(ecu)
 
@@ -29,13 +29,13 @@ FetchContent_MakeAvailable(ecu)
 # application's toolchain.
 add_library(cusb STATIC
     # src/cusbd/
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/configuration.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/cusbd.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/endpoint.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/event.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/configuration.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/cusbd.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/endpoint.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/event.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/interface.c
     ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/request.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/string.c
+    # ${CMAKE_CURRENT_LIST_DIR}/src/cusbd/string.c
 )
 
 # Example include in the Application would be #include "cusbd/cusbd.h" 
@@ -61,8 +61,8 @@ target_compile_features(cusb
 # target_compile_options(cusb PRIVATE -O2). It is OK if the application does 
 # not specify an optimization level - GCC will default it to -O0.
 # Note that -Werror will only be passed for build tests.
-add_library(cusb_warning_options INTERFACE)
-target_compile_options(cusb_warning_options 
+add_library(cusb_compiler_flags INTERFACE)
+target_compile_options(cusb_compiler_flags 
     INTERFACE 
         # C compiler flags. We know CUSB is a C library so we can use this generator expression.
         $<$<COMPILE_LANG_AND_ID:C,GNU>:-fdiagnostics-color=always -ffunction-sections -fdata-sections -fstack-usage -fno-common>
@@ -76,12 +76,12 @@ target_compile_options(cusb_warning_options
 
 # Note how CUSB-specific warning flags are private so it is not propagated
 # to the user's application. However our internal tests can still use 
-# cusb_warning_options target to get all of the warning flags.
+# cusb_compiler_flags target to get all of the warning flags.
 target_link_libraries(cusb 
     PUBLIC
         ecu
     PRIVATE
-        cusb_warning_options
+        cusb_compiler_flags
 )
 
 #------------------------------------------------------------#
@@ -93,6 +93,12 @@ elseif(${CUSB_ENABLE_UNIT_TESTING})
     target_compile_definitions(cusb
         PUBLIC 
             CUSB_UNIT_TEST 
+    )
+
+    target_include_directories(cusb
+        PUBLIC
+            # Allow unit tests to access private headers in src/ directory.
+            ${CMAKE_CURRENT_LIST_DIR}/src
     )
 
     # CTest and enable_testing has to be in the root CMakeLists.txt. 

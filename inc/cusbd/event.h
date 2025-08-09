@@ -133,14 +133,6 @@ struct cusbd_power_source_change_event
     struct cusbd_event base;
 };
 
-
-
-suspended_event
-resume_event
-remote_wakeup_event
-
-
-
 /*------------------------------------------------------------*/
 /*----------------------- PUBLIC FUNCTIONS -------------------*/
 /*------------------------------------------------------------*/
