@@ -1,12 +1,4 @@
 #------------------------------------------------------------#
-#----------------------- CUSB SETTINGS ----------------------#
-#------------------------------------------------------------#
-target_compile_features(cusb 
-    PRIVATE 
-        c_std_23 
-)
-
-#------------------------------------------------------------#
 #---------------------- CPPUTEST SETTINGS -------------------#
 #------------------------------------------------------------#
 include(FetchContent)
@@ -54,6 +46,9 @@ target_compile_features(CUSB_UNIT_TEST
 
 target_include_directories(CUSB_UNIT_TEST
     PRIVATE 
+        # Allow unit tests to access private headers in src/
+        ${CMAKE_SOURCE_DIR}/src
+
         # To be able to include stubs, helpers, etc.
         ${CMAKE_CURRENT_LIST_DIR}
 )

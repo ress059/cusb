@@ -32,13 +32,56 @@
 ECU_ASSERT_DEFINE_NAME("cusbd/interface.c")
 
 /*------------------------------------------------------------*/
+/*--------------------------- DEFINES ------------------------*/
+/*------------------------------------------------------------*/
+
+#define BINTERFACECLASS_AUDIO ((uint8_t)0x01)
+#define BINTERFACECLASS_CDC_CONTROL ((uint8_t)0x02)
+#define BINTERFACECLASS_HID ((uint8_t)0x03)
+#define BINTERFACECLASS_PHYSICAL ((uint8_t)0x05)
+#define BINTERFACECLASS_IMAGE ((uint8_t)0x06)
+#define BINTERFACECLASS_PRINTER ((uint8_t)0x07)
+#define BINTERFACECLASS_MASS_STORAGE ((uint8_t)0x08)
+#define BINTERFACECLASS_CDC_DATA ((uint8_t)0x0A)
+#define BINTERFACECLASS_SMART_CARD ((uint8_t)0x0B)
+#define BINTERFACECLASS_CONTENT_SECURITY ((uint8_t)0x0D)
+#define BINTERFACECLASS_VIDEO ((uint8_t)0x0E)
+#define BINTERFACECLASS_PERSONAL_HEALTHCARE ((uint8_t)0x0F)
+#define BINTERFACECLASS_AUDIO_AND_VIDEO ((uint8_t)0x10)
+#define BINTERFACECLASS_USBC_BRIDGE ((uint8_t)0x12)
+#define BINTERFACECLASS_BULK_DISPLAY ((uint8_t)0x13)
+#define BINTERFACECLASS_MCTP ((uint8_t)0x14)
+#define BINTERFACECLASS_I3C ((uint8_t)0x3C)
+#define BINTERFACECLASS_DIAGNOSTIC_DEVICE ((uint8_t)0xDC)
+#define BINTERFACECLASS_WIRELESS_CONTROLLER ((uint8_t)0xE0)
+#define BINTERFACECLASS_MISC ((uint8_t)0xEF)
+#define BINTERFACECLASS_APP_SPECIFIC ((uint8_t)0xFE)
+#define BINTERFACECLASS_VENDOR_SPECIFIC ((uint8_t)0xFF)
+
+/*------------------------------------------------------------*/
+/*----------- STATIC FUNCTION DECLARATIONS - COMMON ----------*/
+/*------------------------------------------------------------*/
+
+/**
+ * @brief Returns true if the interface's class code is
+ * one of the valid ones listed in https://www.usb.org/defined-class-codes.
+ * False otherwise.
+ */
+static bool binterfaceclass_valid(uint8_t bInterfaceClass);
+
+/*------------------------------------------------------------*/
 /*---------- STATIC FUNCTION DECLARATIONS - INTERFACE --------*/
 /*------------------------------------------------------------*/
 
 /**
  * @brief Returns true if the supplied interface descriptor contains
- * valid data and was properly constructed via @ref CUSBD_INTERFACE_DESCRIPTOR_CTOR(). 
- * False otherwise.
+ * valid data. False otherwise.
+ * 
+ * @note bInterfaceSubclass and bInterfaceProtocol are not
+ * checked since these are class-specific. It is unreasonable
+ * to check for every single possible combination. Instead,
+ * validity for these are checked in the relevant
+ * cusbd_interface_add_..() function.
  * 
  * @param descriptor Descriptor to check.
  */
@@ -50,12 +93,65 @@ static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *
 
 /**
  * @brief Returns true if the supplied interface descriptor contains
- * valid data and was properly constructed via @ref CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(). 
- * False otherwise.
+ * valid data. False otherwise.
+ * 
+ * @note bInterfaceSubclass and bInterfaceProtocol are not
+ * checked since these are class-specific. It is unreasonable
+ * to check for every single possible combination. Instead,
+ * validity for these are checked in the relevant
+ * cusbd_interface_add_..() function.
  * 
  * @param descriptor Descriptor to check.
  */
 static bool alternate_interface_descriptor_valid(const struct cusbd_interface_descriptor *descriptor);
+
+/*------------------------------------------------------------*/
+/*----------- STATIC FUNCTION DEFINITIONS - COMMON -----------*/
+/*------------------------------------------------------------*/
+
+static bool binterfaceclass_valid(uint8_t bInterfaceClass)
+{
+    bool status = false;
+
+    switch (bInterfaceClass)
+    {
+        /* Intentional fallthroughs. */
+        case BINTERFACECLASS_AUDIO:
+        case BINTERFACECLASS_CDC_CONTROL:
+        case BINTERFACECLASS_HID:
+        case BINTERFACECLASS_PHYSICAL:
+        case BINTERFACECLASS_IMAGE:
+        case BINTERFACECLASS_PRINTER:
+        case BINTERFACECLASS_MASS_STORAGE:
+        case BINTERFACECLASS_CDC_DATA:
+        case BINTERFACECLASS_SMART_CARD:
+        case BINTERFACECLASS_CONTENT_SECURITY:
+        case BINTERFACECLASS_VIDEO:
+        case BINTERFACECLASS_PERSONAL_HEALTHCARE:
+        case BINTERFACECLASS_AUDIO_AND_VIDEO:
+        case BINTERFACECLASS_USBC_BRIDGE:
+        case BINTERFACECLASS_BULK_DISPLAY:
+        case BINTERFACECLASS_MCTP:
+        case BINTERFACECLASS_I3C:
+        case BINTERFACECLASS_DIAGNOSTIC_DEVICE:
+        case BINTERFACECLASS_WIRELESS_CONTROLLER:
+        case BINTERFACECLASS_MISC:
+        case BINTERFACECLASS_APP_SPECIFIC:
+        case BINTERFACECLASS_VENDOR_SPECIFIC:
+        {
+            status = true;
+            break;
+        }
+
+        default:
+        {
+            status = false;
+            break;
+        }
+    }
+    
+    return status;
+}
 
 /*------------------------------------------------------------*/
 /*---------- STATIC FUNCTION DEFINITIONS - INTERFACE ---------*/
@@ -66,12 +162,13 @@ static bool interface_descriptor_valid(const struct cusbd_interface_descriptor *
     bool status = false;
     ECU_RUNTIME_ASSERT( (descriptor) );
 
-#pragma message("TODO: Figure out bInterfaceClass, bInterfaceSubClass, and bInterfaceProtocol.")
     /* Do not assert bInterfaceNumber, bNumEndpoints, and iInterface since 
-    these are automatically updated when device starts. */
+    these are automatically updated when device starts. bInterfaceSubclass
+    and bInterfaceProtocol are purposefully not checked. See function description. */
     if (descriptor->bLength == sizeof(struct cusbd_interface_descriptor) &&
         descriptor->bDescriptorType == (uint8_t)CUSBD_INTERFACE_BDESCRIPTORTYPE &&
-        descriptor->bAlternateSetting == 0)
+        descriptor->bAlternateSetting == 0 &&
+        binterfaceclass_valid(descriptor->bInterfaceClass))
     {
         status = true;
     }
@@ -88,12 +185,13 @@ static bool alternate_interface_descriptor_valid(const struct cusbd_interface_de
     bool status = false;
     ECU_RUNTIME_ASSERT( (descriptor) );
 
-#pragma message("TODO: Figure out bInterfaceClass, bInterfaceSubClass, and bInterfaceProtocol.")
     /* Do not assert bInterfaceNumber, bNumEndpoints, and iInterface since 
-    these are automatically updated when device starts. */
+    these are automatically updated when device starts. bInterfaceSubclass
+    and bInterfaceProtocol are purposefully not checked. See function description. */
     if (descriptor->bLength == sizeof(struct cusbd_interface_descriptor) &&
         descriptor->bDescriptorType == (uint8_t)CUSBD_INTERFACE_BDESCRIPTORTYPE &&
-        descriptor->bAlternateSetting > 0)
+        descriptor->bAlternateSetting > 0 &&
+        binterfaceclass_valid(descriptor->bInterfaceClass))
     {
         status = true;
     }
@@ -112,17 +210,29 @@ ECU_STATIC_ASSERT( (sizeof(struct cusbd_interface_descriptor) == (size_t)9),
 /*-------------- CUSBD INTERFACE MEMBER FUNCTIONS ------------*/
 /*------------------------------------------------------------*/
 
-void cusbd_interface_ctor(struct cusbd_interface *me,
-                          const struct cusbd_interface_descriptor *descriptor)
+void cusbd_interface_ctor(struct cusbd_interface *me, 
+                          uint8_t bInterfaceClass,
+                          uint8_t bInterfaceSubclass,
+                          uint8_t bInterfaceProtocol)
 {
-    ECU_RUNTIME_ASSERT( (me && descriptor) );
-    ECU_RUNTIME_ASSERT( (interface_descriptor_valid(descriptor)) );
+    ECU_RUNTIME_ASSERT( (me) );
+    ECU_RUNTIME_ASSERT( (binterfaceclass_valid(bInterfaceClass)) );
 
     ecu_ntnode_ctor(&me->ntnode, ECU_NTNODE_DESTROY_UNUSED, (ecu_object_id)CUSBD_INTERFACE_BDESCRIPTORTYPE);
-    memcpy(&me->descriptor, descriptor, sizeof(struct cusbd_interface_descriptor));
+    me->descriptor.bLength = ECU_FIELD_SIZEOF(struct cusbd_interface, descriptor);
+    me->descriptor.bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE;
+    me->descriptor.bInterfaceNumber = 0;
+    me->descriptor.bAlternateSetting = 0;
+    me->descriptor.bNumEndpoints = 0;
+    me->descriptor.bInterfaceClass = bInterfaceClass;
+    me->descriptor.bInterfaceSubClass = bInterfaceSubclass;
+    me->descriptor.bInterfaceProtocol = bInterfaceProtocol;
+    me->descriptor.iInterface = 0;
     me->alternate_setting = 0;
     ecu_dlist_ctor(&me->strings);
 }
+
+!!! TODO Stopped here !! dont know if i should update fields as descriptors are added or not.
 
 void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
                                              struct cusbd_alternate_interface *alternate_interface)

@@ -23,7 +23,7 @@
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
-#include "ecu/ntree.h"
+#include "ecu/ntnode.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/

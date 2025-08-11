@@ -23,7 +23,7 @@
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
-#include "ecu/ntree.h"
+#include "ecu/ntnode.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
@@ -36,64 +36,64 @@
 #define CUSBD_INTERFACE_BDESCRIPTORTYPE \
     ((uint8_t)0x04)
 
-/**
- * @brief Creates a @ref cusbd_interface_descriptor at
- * either compile-time or run-time, which should be
- * used to create a @ref cusbd_interface. Example usage:
- * @code{.c}
- * static const struct cusbd_interface_descriptor interface = CUSBD_INTERFACE_DESCRIPTOR_CTOR(
- *      0, 0, 0
- * );
- * @endcode
- * 
- * @param bInterfaceClass_ This interface's class code. See USB spec.
- * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
- * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
- */
-#define CUSBD_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,       \
-                                        bInterfaceSubClass_,    \
-                                        bInterfaceProtocol_)    \
-    {                                                           \
-        .bLength = sizeof(struct cusbd_interface_descriptor),   \
-        .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,     \
-        .bInterfaceNumber = 0,                                  \
-        .bAlternateSetting = 0,                                 \
-        .bNumEndpoints = 0,                                     \
-        .bInterfaceClass = (bInterfaceClass_),                  \
-        .bInterfaceSubClass = (bInterfaceSubClass_),            \
-        .bInterfaceProtocol = (bInterfaceProtocol_),            \
-        .iInterface = 0                                         \
-    }
+// /**
+//  * @brief Creates a @ref cusbd_interface_descriptor at
+//  * either compile-time or run-time, which should be
+//  * used to create a @ref cusbd_interface. Example usage:
+//  * @code{.c}
+//  * static const struct cusbd_interface_descriptor interface = CUSBD_INTERFACE_DESCRIPTOR_CTOR(
+//  *      0, 0, 0
+//  * );
+//  * @endcode
+//  * 
+//  * @param bInterfaceClass_ This interface's class code. See USB spec.
+//  * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
+//  * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
+//  */
+// #define CUSBD_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,       \
+//                                         bInterfaceSubClass_,    \
+//                                         bInterfaceProtocol_)    \
+//     {                                                           \
+//         .bLength = sizeof(struct cusbd_interface_descriptor),   \
+//         .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,     \
+//         .bInterfaceNumber = 0,                                  \
+//         .bAlternateSetting = 0,                                 \
+//         .bNumEndpoints = 0,                                     \
+//         .bInterfaceClass = (bInterfaceClass_),                  \
+//         .bInterfaceSubClass = (bInterfaceSubClass_),            \
+//         .bInterfaceProtocol = (bInterfaceProtocol_),            \
+//         .iInterface = 0                                         \
+//     }
 
-/**
- * @brief Creates a @ref cusbd_interface_descriptor at
- * either compile-time or run-time, which should be
- * used to create a @ref cusbd_alternate_interface. 
- * Example usage:
- * @code{.c}
- * static const struct cusbd_interface_descriptor interface = CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(
- *      0, 0, 0
- * );
- * @endcode
- * 
- * @param bInterfaceClass_ This interface's class code. See USB spec.
- * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
- * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
- */
-#define CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,         \
-                                                  bInterfaceSubClass_,      \
-                                                  bInterfaceProtocol_)      \
-    {                                                                       \
-        .bLength = sizeof(struct cusbd_interface_descriptor),               \
-        .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,                 \
-        .bInterfaceNumber = 0,                                              \
-        .bAlternateSetting = 1,                                             \
-        .bNumEndpoints = 0,                                                 \
-        .bInterfaceClass = (bInterfaceClass_),                              \
-        .bInterfaceSubClass = (bInterfaceSubClass_),                        \
-        .bInterfaceProtocol = (bInterfaceProtocol_),                        \
-        .iInterface = 0                                                     \
-    }
+// /**
+//  * @brief Creates a @ref cusbd_interface_descriptor at
+//  * either compile-time or run-time, which should be
+//  * used to create a @ref cusbd_alternate_interface. 
+//  * Example usage:
+//  * @code{.c}
+//  * static const struct cusbd_interface_descriptor interface = CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(
+//  *      0, 0, 0
+//  * );
+//  * @endcode
+//  * 
+//  * @param bInterfaceClass_ This interface's class code. See USB spec.
+//  * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
+//  * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
+//  */
+// #define CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,         \
+//                                                   bInterfaceSubClass_,      \
+//                                                   bInterfaceProtocol_)      \
+//     {                                                                       \
+//         .bLength = sizeof(struct cusbd_interface_descriptor),               \
+//         .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,                 \
+//         .bInterfaceNumber = 0,                                              \
+//         .bAlternateSetting = 1,                                             \
+//         .bNumEndpoints = 0,                                                 \
+//         .bInterfaceClass = (bInterfaceClass_),                              \
+//         .bInterfaceSubClass = (bInterfaceSubClass_),                        \
+//         .bInterfaceProtocol = (bInterfaceProtocol_),                        \
+//         .iInterface = 0                                                     \
+//     }
 
 /*------------------------------------------------------------*/
 /*----------------------- CUSBD INTERFACE --------------------*/
@@ -221,17 +221,25 @@ extern "C" {
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSBD_INTERFACE_DESCRIPTOR_CTOR().
  * @brief Interface descriptor constructor.
  * 
  * @warning This cannot be called on an active interface 
  * descriptor. Doing so is undefined behavior.
  * 
  * @param me Interface descriptor to construct.
- * @param descriptor The interface descriptor's data.
+ * @param bInterfaceClass The interface's class code.
+ * See https://www.usb.org/defined-class-codes.
+ * @param bInterfaceSubclass The interface's subclass code.
+ * It's value depends on the class specified in @p bInterfaceClass.
+ * See USB class's specification for list of acceptable values.
+ * @param bInterfaceProtocol The interface's protocol code.
+ * It's value depends on the class specified in @p bInterfaceClass.
+ * See USB class's specification for list of acceptable values.
  */
-extern void cusbd_interface_ctor(struct cusbd_interface *me,
-                                 const struct cusbd_interface_descriptor *descriptor);
+extern void cusbd_interface_ctor(struct cusbd_interface *me, 
+                                 uint8_t bInterfaceClass,
+                                 uint8_t bInterfaceSubclass,
+                                 uint8_t bInterfaceProtocol);
 /**@}*/
 
 /**

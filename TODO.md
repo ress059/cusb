@@ -201,3 +201,14 @@ any type other than an integral type. [MISRA-C:2004 Rule 11.1]
 - I.e. function pointer can only be converted to uintptr_t, int, etc.
 - ECU violates this rule with function pointer upcasting.
 
+
+Syntax
+=========================
+1. Variables referencing descriptor data are in camel case (same standard as USB).
+Functions referencing descriptor data are in snake case (standard of this codebase).
+I.e.
+```C
+extern void get_wlength();
+
+uint16_t wLength = descriptor->wLength;
+```

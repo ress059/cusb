@@ -32,5 +32,5 @@ target_compile_options(CUSB_BUILD_TEST
 target_link_libraries(CUSB_BUILD_TEST 
     PRIVATE 
         cusb
-        cusb_warning_options
+        cusbd_compiler_flags
 )

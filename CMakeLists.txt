@@ -95,12 +95,6 @@ elseif(${CUSB_ENABLE_UNIT_TESTING})
             CUSB_UNIT_TEST 
     )
 
-    target_include_directories(cusb
-        PUBLIC
-            # Allow unit tests to access private headers in src/ directory.
-            ${CMAKE_CURRENT_LIST_DIR}/src
-    )
-
     # CTest and enable_testing has to be in the root CMakeLists.txt. 
     # Tests will not be discovered if this is in tests/CMakeLists.txt....
     include(CTest)
