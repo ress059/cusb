@@ -18,15 +18,21 @@
 
 /* STDLib. */
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* ECU. */
 #include "ecu/attributes.h"
+#include "ecu/event.h"
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
 /*------------------------------------------------------------*/
 
+/**
+ * @name Base Event
+ */
+/**@{*/
 /**
  * @brief Upcasts derived event pointer into
  * a @ref cusbd_event base class pointer. This macro 
@@ -37,7 +43,7 @@
  * @param me_ Pointer to derived event. This must inherit
  * @ref cusbd_event base class.
  */
-#define CUSBD_EVENT_BASE_CAST(e_) \
+#define CUSBD_EVENT_CONST_BASE_CAST(e_) \
     ((const struct cusbd_event *)(e_))
 
 /*------------------------------------------------------------*/
@@ -49,38 +55,85 @@
  */
 enum cusbd_event_id
 {
-    CUSBD_RESERVED_EVENT_ID,        /**< Dummy event ID. Allows library to detect if event was constructed. ID 0-initialized to this value if not. */
+    CUSBD_RESERVED_EVENT_ID = ECU_USER_EVENT_ID_BEGIN, /**< Dummy event ID. Allows library to detect if event was constructed. ID 0-initialized to this value if not. */
     /*****************************/
-    CUSBD_RX_REQUEST_EVENT_ID,      /**< Device received a request (setup packet in a control transfer) from the host. */
+    CUSBD_RESET_EVENT_ID,           /**< Host issued a reset signal to device. */
+    CUSBD_RESUME_EVENT_ID,          /**< Bus activity has resumed. */
+    CUSBD_SETUP_PACKET_RX_EVENT_ID, /**< Device received setup packet from host (status stage of control transfer). */
+    CUSBD_SUSPEND_EVENT_ID,         /**< Bus activity from the host has stopped for a period of time specified by USB spec. */
     /*****************************/
     CUSBD_TOTAL_EVENT_IDS           /**< Total number of event IDs. */
 };
+/**@}*/
+
+/*------------------------------------------------------------*/
+/*--------------------- CUSBD_RESET_EVENT --------------------*/
+/*------------------------------------------------------------*/
 
 /**
- * @brief Base event class.
+ * @name cusbd_reset_event
+ */
+/**@{*/
+/**
+ * @brief Application should create this event with
+ * @ref cusbd_reset_event_ctor() and dispatch it to
+ * the USB device when a USB reset signal is issued 
+ * by the host.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusbd_event
+struct cusbd_reset_event
 {
-    /// @brief Identifies the type of event.
-    enum cusbd_event_id id;
+    /// @brief Inherit base event class.
+    /// @warning MUST be first member.
+    struct ecu_event base;
 };
+/**@}*/
 
 /*------------------------------------------------------------*/
-/*----------------- CUSBD_STD_REQUEST_RX_EVENT ---------------*/
+/*--------------------- CUSBD_RESUME_EVENT -------------------*/
 /*------------------------------------------------------------*/
 
 /**
- * @brief Setup packet contents for a USB device request.
- * End user will memcopy setup packets received on endpoint 
- * zero into this struct.
- * 
- * @warning Will always be stored in little endian, not
- * native endianness.
+ * @name cusbd_resume_event
  */
-struct cusbd_request
+/**@{*/
+/**
+ * @brief Application should create this event using
+ * @ref cusbd_resume_event_ctor() and dispatch
+ * it to the USB device when bus activity has resumed
+ * after being suspended.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
+ */
+struct cusbd_resume_event
+{
+    /// @brief Inherit base event class.
+    /// @warning MUST be first member.
+    struct ecu_event base;
+};
+/**@}*/
+
+/*------------------------------------------------------------*/
+/*----------------- CUSBD_SETUP_PACKET_RX_EVENT --------------*/
+/*------------------------------------------------------------*/
+
+/**
+ * @name cusbd_setup_packet_rx_event
+ */
+/**@{*/
+/**
+ * @brief Data packet contents sent by host in the status 
+ * stage of a control transfer.
+ * 
+ * @warning Must be stored in little endian, not
+ * native endianness.
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
+ */
+struct cusbd_setup_packet
 {
     /// @brief Bitmap. Type of request.
     uint8_t bmRequestType;
@@ -102,39 +155,67 @@ struct cusbd_request
 /**
  * @brief Application should create this event using
  * @ref cusbd_setup_packet_rx_event_ctor() and dispatch
- * it to the USB device when a request (setup packet from
- * a control transfer) is received from the host on endpoint 
- * zero.
+ * it to the USB device when the data packet (setup packet) 
+ * in the status stage of a control transfer is received 
+ * from the host.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusbd_rx_request_event
+struct cusbd_setup_packet_rx_event
 {
-    /// @brief Inherit @ref cusbd_event base class.
+    /// @brief Inherit base event class.
     /// @warning MUST be first member.
-    struct cusbd_event base;
+    struct ecu_event base;
 
-    /// @brief Request data in setup packet. A local copy is 
-    /// stored in case the user's original is destroyed.
+    /// @brief Data packet contents sent by host in the 
+    /// status stage of a control transfer. A local copy 
+    /// is stored in case the user's original is destroyed.
     /// @warning This struct is packed and will always 
     /// be in little endian.
-    struct cusbd_request packet;
+    struct cusbd_setup_packet packet;
 };
+/**@}*/
 
 /*------------------------------------------------------------*/
-/*-------------------- CUSBD_BUS_POWERED_EVENT ---------------*/
+/*-------------------- CUSBD_SUSPEND_EVENT -------------------*/
 /*------------------------------------------------------------*/
 
-struct cusbd_power_source_change_event
+/**
+ * @name cusbd_suspend_event
+ */
+/**@{*/
+/**
+ * @brief Application should create this event using
+ * @ref cusbd_suspend_event_ctor() and dispatch
+ * it to the USB device when bus activity from the host
+ * has stopped.
+ * 
+ * @warning PRIVATE. Unless otherwise specified, all
+ * members can only be edited via the public API.
+ */
+struct cusbd_suspend_event
 {
-    /// @brief Inherit @ref cusbd_event base class.
+    /// @brief Inherit base event class.
     /// @warning MUST be first member.
-    struct cusbd_event base;
+    struct ecu_event base;
 };
+/**@}*/
+
+
+// /*------------------------------------------------------------*/
+// /*-------------------- CUSBD_BUS_POWERED_EVENT ---------------*/
+// /*------------------------------------------------------------*/
+
+// struct cusbd_power_source_change_event
+// {
+//     /// @brief Inherit @ref cusbd_event base class.
+//     /// @warning MUST be first member.
+//     struct cusbd_event base;
+// };
 
 /*------------------------------------------------------------*/
-/*----------------------- PUBLIC FUNCTIONS -------------------*/
+/*--------------------- CUSBD_RESET_EVENT --------------------*/
 /*------------------------------------------------------------*/
 
 #ifdef __cplusplus
@@ -142,43 +223,84 @@ extern "C" {
 #endif
 
 /**
- * @pre @p me is a concrete event that has been constructed.
- * @brief Returns ID of the event.
- * 
- * @param me Derived event to check.
+ * @name cusbd_reset_event
  */
-extern enum cusbd_event_id cusbd_event_id(const struct cusbd_event *me);
+/**@{*/
+/**
+ * @pre Memory already allocated for @p me.
+ * @brief Creates a @ref cusbd_reset_event. The
+ * application should create this event using this function
+ * and dispatch it to the USB device when a USB reset signal 
+ * is issued by the host.
+ * 
+ * @param me Event to create.
+ */
+extern void cusbd_reset_event_ctor(struct cusbd_reset_event *me);
+/**@}*/
+
+/*------------------------------------------------------------*/
+/*--------------------- CUSBD_RESUME_EVENT -------------------*/
+/*------------------------------------------------------------*/
 
 /**
- * @brief Returns true if the supplied event was properly
- * constructed. False otherwise.
- * 
- * @param me Derived event to check.
+ * @name cusbd_resume_event
  */
-extern bool cusbd_event_valid(const struct cusbd_event *me);
+/**@{*/
+/**
+ * @pre Memory already allocated for @p me.
+ * @brief Creates a @ref cusbd_resume_event. The
+ * application should create this event using this function
+ * and dispatch it to the USB device when bus activity has resumed
+ * after being suspended.
+ * 
+ * @param me Event to create.
+ */
+extern void cusbd_resume_event_ctor(struct cusbd_resume_event *me);
+/**@}*/
 
 /*------------------------------------------------------------*/
-/*------------------- CUSBD_RX_REQUEST_EVENT -----------------*/
+/*---------------- CUSBD_SETUP_PACKET_RX_EVENT ---------------*/
 /*------------------------------------------------------------*/
+
 /**
  * @name cusbd_setup_packet_rx_event
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre Setup packet mem-copied from endpoint zero buffer into @p request.
  * @brief Creates a @ref cusbd_setup_packet_rx_event. The
  * application should create this event using this function
- * and dispatch it to the USB device when a request (setup packet 
- * from a control transfer) is received from the host on endpoint 
- * zero.
+ * and dispatch it to the USB device when the data packet 
+ * (setup packet) in the status stage of a control transfer 
+ * is received from the host.
  * 
  * @param me Event to create.
- * @param packet Setup packet received from host. Must
- * be directly mem-copied. Library will handle endianness.
+ * @param data The setup packet contents in @ref cusbd_setup_packet.
+ * @param len Number of bytes of @p data.
  */
-extern void cusbd_rx_request_event_ctor(struct cusbd_rx_request_event *me,
-                                        const struct cusbd_request *packet);
+extern void cusbd_setup_packet_rx_event_ctor(struct cusbd_setup_packet_rx_event *me,
+                                             const void *data,
+                                             size_t len);
+/**@}*/
+
+/*------------------------------------------------------------*/
+/*-------------------- CUSBD_SUSPEND_EVENT -------------------*/
+/*------------------------------------------------------------*/
+
+/**
+ * @name cusbd_suspend_event
+ */
+/**@{*/
+/**
+ * @pre Memory already allocated for @p me.
+ * @brief Creates a @ref cusbd_suspend_event. The
+ * application should create this event using this function
+ * and dispatch it to the USB device when bus activity from
+ * the host has stopped.
+ * 
+ * @param me Event to create.
+ */
+extern void cusbd_suspend_event_ctor(struct cusbd_suspend_event *me);
 /**@}*/
 
 #ifdef __cplusplus

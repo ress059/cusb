@@ -21,143 +21,72 @@
 
 /* STDLib. */
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <uchar.h> /* char16_t */
 
 /* ECU. */
 #include "ecu/dlist.h"
-#include "ecu/endian.h"
-#include "ecu/utils.h" /* ECU_FIELD_SIZEOF(). */
 
 /*------------------------------------------------------------*/
 /*---------------------- DEFINES AND MACROS ------------------*/
 /*------------------------------------------------------------*/
 
 /**
- * @brief Creates a @ref cusbd_string_descriptor_zero
- * at compile-time. Example usage:
- * @code{.c}
- * static const uint16_t languages[] = {0x0409, 0x040C};
- * static const struct cusbd_string_descriptor_zero string0 = CUSBD_STRING_DESCRIPTOR_ZERO_CTOR(languages);
- * @endcode
+ * @brief Creates a UTF-16 encoded string from the supplied
+ * string literal. This macro should be used in 
+ * @ref cusbd_string_ctor().
  * 
- * @param languages_ Languages the device supports. This is
- * a uint16_t[] array of language ID codes (@ref cusbd_string_descriptor_zero.wLANGID).
- * See USB spec as these codes are defined by USB. In the 
- * code example above the supported languages are English 
- * (0x0409) and French (0x040C).
+ * @param string_ String literal to convert.
  */
-#define CUSBD_STRING_DESCRIPTOR_ZERO_CTOR(languages_)                                   \
-    {                                                                                   \
-        .bLength = ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bLength) +     \
-            ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bDescriptorType) +    \
-            sizeof(languages_)/sizeof(languages_[0]),                                   \
-        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_STRING,                                \
-        .wLANGID = (&languages_[0])                                                     \
-    }
+#define CUSBD_STRING(string_) \
+    (u##string_)
 
 /**
- * @brief Creates a @ref cusbd_string_descriptor at
- * compile-time. Example usage:
- * @code{.c}
- * static const struct cusbd_string_descriptor string = CUSBD_STRING_DESCRIPTOR_CTOR("hello world");
- * @endcode
+ * @brief Converts supplied linked list node into @ref cusbd_string
+ * type.
  * 
- * @param string_ String literal to store in the descriptor.
+ * @param ecu_dnode_ptr_ Pointer to linked list node. This must be
+ * pointer to non-const.
  */
-#define CUSBD_STRING_DESCRIPTOR_CTOR(string_)                                           \
-    {                                                                                   \
-        .bLength = ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bLength) +          \
-            ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bDescriptorType) +         \
-            sizeof(u##string_) - sizeof(cusbd_utf16_t), /* Subtract NULL character. */  \
-        .bDescriptorType = CUSBD_DESCRIPTOR_TYPE_STRING,                                \
-        .bString = u##string_                                                           \
-    }
+#define CUSBD_STRING_GET_ENTRY(ecu_dnode_ptr_) \
+    ECU_DNODE_GET_ENTRY(ecu_dnode_ptr_, struct cusbd_string, dnode)
+
+/**
+ * @brief Const-qualified version of @ref CUSBD_STRING_GET_ENTRY().
+ * 
+ * @param ecu_dnode_ptr_ Pointer to linked list node. This can be
+ * pointer to const or non-const.
+ */
+#define CUSBD_STRING_GET_CONST_ENTRY(ecu_dnode_ptr_) \
+    ECU_DNODE_GET_CONST_ENTRY(ecu_dnode_ptr_, struct cusbd_string, dnode)
 
 /*------------------------------------------------------------*/
 /*------------------------ CUSBD STRING ----------------------*/
 /*------------------------------------------------------------*/
 
 /**
- * @brief Custom type representing a character encoded in
- * UTF-16 format. Typedeffed in case this has to change in
- * the future.
- */
-typedef char16_t cusbd_utf16_t;
-
-/**
- * @brief Data in string descriptor zero. Must be created
- * at compile-time with @ref CUSBD_STRING_DESCRIPTOR_ZERO_CTOR().
- * Not packed since some data lengths are variable and stored by
- * reference.
- *
- * @warning PRIVATE. Unless otherwise specified, all
- * members can only be edited via the public API.
- */
-struct cusbd_string_descriptor_zero
-{
-    /// @brief Number of bytes of this descriptor.
-    const uint8_t bLength;
-
-    /// @brief Descriptor type. Always 0x03 == String Descriptor.
-    const uint8_t bDescriptorType;
-
-    /// @brief All languages this device supports.
-    /// @warning Stored in native endianness, not little endian.
-    const uint16_t *const wLANGID;
-};
-
-/**
- * @brief Data in standard string descriptor. Must be created at
- * compile-time with the @ref CUSBD_STRING_DESCRIPTOR_CTOR()
- * macro. Not packed since string literal can be variable 
- * length and is stored by reference.
- * 
- * @warning PRIVATE. Unless otherwise specified, all
- * members can only be edited via the public API.
- */
-struct cusbd_string_descriptor
-{
-    /// @brief Number of bytes of this descriptor. Number of
-    /// bytes in bString used to determine this value, NOT the
-    /// number of unicode characters in bString. Also note that
-    /// the NULL character in bString is NOT included in this value.
-    const uint8_t bLength;
-
-    /// @brief Descriptor type. Always 0x03 == String Descriptor.
-    const uint8_t bDescriptorType;
-
-    /// @brief UTF-16 encoded string.
-    /// @warning A NULL terminated string is stored here since this is 
-    /// initialized from a string literal. Note however that bLength 
-    /// does not include the NULL character.
-    /// @warning Characters are stored in native endianness, not little 
-    /// endian.
-    const cusbd_utf16_t *const bString;
-};
-
-/**
  * @brief Object representing a USB string descriptor 
  * zero. This is optional but must be used if the device
- * uses any string descriptors. A device uses this by passing
- * this object to @ref cusbd_device_ctor(). Currently
- * only contains descriptor data but this is wrapped
- * in an object in case new members have to be added
- * in the future.
+ * uses any string descriptors.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
 struct cusbd_string_zero
 {
-    /// @brief Descriptor data. NOT packed since string
-    /// can be variable length. This is stored by reference
-    /// since all @ref cusbd_string_descriptor_zero objects
-    /// must be initialized at compile-time and will never
-    /// change.
-    /// @warning wLANGID codes stored in native endianness,
-    /// not little endian.
-    const struct cusbd_string_descriptor_zero *descriptor;
+    /// @brief Number of bytes of string0 descriptor contents.
+    uint8_t bLength;
+
+    /// @brief Descriptor type. Always 0x03.
+    uint8_t bDescriptorType;
+
+    /// @brief Array of language IDs this device supports.
+    /// @warning Stored in native endianness, not little endian.
+    const uint16_t *wLANGIDs;
+
+    /// @brief Number of language IDs (elements) in wLANGIDs array.
+    size_t wLANGIDs_count;
 };
 
 /**
@@ -173,14 +102,23 @@ struct cusbd_string
     /// @brief Node in linked list.
     struct ecu_dnode dnode;
 
-    /// @brief Descriptor data. NOT packed since string
-    /// can be variable length. This is stored by reference
-    /// since all @ref cusbd_string_descriptor objects
-    /// must be initialized at compile-time and will never
-    /// change.
-    /// @warning String characters stored in native endianness,
-    /// not little endian.
-    const struct cusbd_string_descriptor *descriptor;
+    /// @brief Number of bytes of string descriptor contents.
+    uint8_t bLength;
+
+    /// @brief Descriptor type. Always 0x03.
+    uint8_t bDescriptorType;
+
+    /// @brief NULL-terminated UTF-16 encoded string literal.
+    /// @warning Stored in native endianness, not little endian.
+    const char16_t *bString;
+
+    /// @brief Index of the string (iProduce, iManufacturer, 
+    /// iConfiguration, etc).
+    uint8_t index;
+
+    /// @brief Number of characters in bString, NOT including
+    /// the NULL terminator.
+    size_t length;
 
     /// @brief Identifies language the string is in. Codes 
     /// assigned by USB.
@@ -197,22 +135,29 @@ extern "C" {
 #endif
 
 /**
- * @name CUSBD String Zero Constructors
+ * @name CUSBD String Zero Constructor
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSBD_STRING_DESCRIPTOR_ZERO_CTOR().
- * @brief String descriptor zero constructor.
+ * @brief String descriptor zero constructor. Example use:
+ * @code{.c}
+ * static const uint16_t languages[] = {0x0409, 0x040C}; // English and French supported.
+ * cusbd_string_zero_ctor(&string0, &languages[0], sizeof(languages));
+ * @endcode
  * 
  * @warning This cannot be called on an active string
  * descriptor zero. Doing so is undefined behavior.
  * 
  * @param me String descriptor zero to construct.
- * @param descriptor String descriptor zero's data.
+ * @param wLANGIDs Array of language ID codes this device supports.
+ * Codes should be stored as raw values. Do not convert them into little endian.
+ * @param wLANGIDs_size Number of bytes of @p wLANGIDs array. This
+ * is uint8_t because it must be able to be held in bLength.
  */
 extern void cusbd_string_zero_ctor(struct cusbd_string_zero *me,
-                                   const struct cusbd_string_descriptor_zero *descriptor);
+                                   const uint16_t *wLANGIDs,
+                                   uint8_t wLANGIDs_size);
 /**@}*/
 
 /**
@@ -221,13 +166,12 @@ extern void cusbd_string_zero_ctor(struct cusbd_string_zero *me,
 /**@{*/
 /**
  * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
- * @brief Returns true if the supplied string descriptor zero contains
- * valid data and was properly constructed via @ref cusbd_string_zero_ctor(). 
- * False otherwise.
+ * @brief Returns the number of langID codes stored in the string
+ * descriptor zero.
  * 
  * @param me String descriptor zero to check.
  */
-extern bool cusbd_string_zero_valid(const struct cusbd_string_zero *me);
+extern size_t cusbd_string_zero_langid_count(const struct cusbd_string_zero *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
@@ -239,33 +183,34 @@ extern bool cusbd_string_zero_valid(const struct cusbd_string_zero *me);
  * an ID code assigned by USB. This must be a raw number, do not
  * try to convert this to little endian.
  */
-extern bool cusbd_string_zero_has_langid(const struct cusbd_string_zero *me,
-                                         uint16_t wLANGID);
+extern bool cusbd_string_zero_langid_supported(const struct cusbd_string_zero *me,
+                                               uint16_t wLANGID);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
- * @brief Returns the number of langID codes stored in the string
- * descriptor zero. I.e. number of elements in @ref cusbd_string_descriptor_zero.wLANGID
- * array.
- * 
- * @param me String descriptor zero to check.
- */
-extern size_t cusbd_string_zero_langid_count(const struct cusbd_string_zero *me);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
- * @brief Copies string descriptor zero's data into @p buf such that @p buf
+ * @brief Copies string descriptor zero's data into @p buffer such that @p buffer
  * can be directly placed in an endpoint buffer without additional 
  * formatting. Data is continuous and all multibyte values are copied 
  * in little endian.
  * 
  * @param me String descriptor zero to send.
- * @param buf String descriptor zero is copied into this buffer. 
- * @param len Number of bytes available in @p buf. This must be
- * greater than or equal to the number of bytes of the string
- * descriptor. I.e. >= @ref cusbd_string_descriptor_zero.bLength.
+ * @param buffer String descriptor zero is copied into this buffer. 
+ * @param len Number of bytes available in @p buffer.
+ * 
+ * @return 0 if buffer was too small to copy full descriptor into.
+ * Otherwise returns the number of bytes copied.
  */
-extern void cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buf, size_t len);
+extern size_t cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buffer, size_t len);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
+ * @brief Returns true if the supplied string descriptor zero contains
+ * valid data and was properly constructed via @ref cusbd_string_zero_ctor(). 
+ * False otherwise.
+ * 
+ * @param me String descriptor zero to check.
+ */
+extern bool cusbd_string_zero_valid(const struct cusbd_string_zero *me);
 /**@}*/
 
 /*------------------------------------------------------------*/
@@ -273,25 +218,27 @@ extern void cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buf
 /*------------------------------------------------------------*/
 
 /**
- * @name CUSBD String Constructors
+ * @name CUSBD String Constructor
  */
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSBD_STRING_DESCRIPTOR_CTOR().
  * @brief String descriptor constructor.
  * 
  * @warning This cannot be called on an active string
  * descriptor. Doing so is undefined behavior.
  * 
  * @param me String descriptor to construct.
- * @param descriptor The string descriptor's data.
+ * @param bString This must be a NULL-terminated, UTF-16 encoded 
+ * string literal that the descriptor contains. The string will be
+ * truncated if its size exceeds what can be held in bLength. @ref CUSBD_STRING()
+ * macro should be used to supply this parameter.
  * @param wLANGID Language the string is in. See USB spec since this is
  * an ID code assigned by USB. This must be a raw number, do not
  * try to convert this to little endian.
  */
 extern void cusbd_string_ctor(struct cusbd_string *me,
-                              const struct cusbd_string_descriptor *descriptor,
+                              const char16_t *bString,
                               uint16_t wLANGID);
 /**@}*/
 
@@ -299,6 +246,61 @@ extern void cusbd_string_ctor(struct cusbd_string *me,
  * @name CUSBD String Member Functions
  */
 /**@{*/
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_ctor().
+ * @brief Returns bLength field of string descriptor.
+ * 
+ * @param me String descriptor to check.
+ */
+extern uint8_t cusbd_string_b_length(const struct cusbd_string *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_ctor().
+ * @brief Returns string's linked list node data structure
+ * so it can be used by other modules without having to directly
+ * access @ref cusbd_string struct. 
+ * 
+ * @warning This should not be used by the application.
+ * 
+ * @param me String descriptor.
+ */
+extern struct ecu_dnode *cusbd_string_dnode(struct cusbd_string *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_ctor().
+ * @brief Const-qualified version of @ref cusbd_string_dnode().
+ * 
+ * @warning This should not be used by the application.
+ * 
+ * @param me String descriptor.
+ */
+extern const struct ecu_dnode *cusbd_string_cdnode(const struct cusbd_string *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_ctor().
+ * @brief Returns the number of characters stored in bString, 
+ * EXCLUDING the NULL terminator.
+ * 
+ * @param me String descriptor to check.
+ */
+extern size_t cusbd_string_length(const struct cusbd_string *me);
+
+/**
+ * @pre @p me previously constructed via @ref cusbd_string_ctor().
+ * @brief Copies string descriptor's data into @p buffer such that @p buffer
+ * can be directly placed in an endpoint buffer without additional 
+ * formatting. Data is continuous and all multibyte values are copied 
+ * in little endian.
+ * 
+ * @param me String descriptor to send.
+ * @param buffer String descriptor is copied into this buffer. 
+ * @param len Number of bytes available in @p buffer.
+ * 
+ * @return 0 if buffer was too small to copy full descriptor into.
+ * Otherwise returns the number of bytes copied.
+ */
+extern size_t cusbd_string_send(const struct cusbd_string *me, void *buffer, size_t len);
+
 /**
  * @pre @p me previously constructed via @ref cusbd_string_ctor().
  * @brief Returns true if the supplied string descriptor contains
@@ -311,40 +313,14 @@ extern bool cusbd_string_valid(const struct cusbd_string *me);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_string_ctor().
- * @brief Returns true if the string is in the queried language.
- * False otherwise.
+ * @brief Returns the language the string supports. This is
+ * a wLANGID code.
  * 
- * @param me String descriptor to check.
- * @param wLANGID Check if string descriptor is in this language. 
- * See USB spec since this is an ID code assigned by USB. This 
- * must be a raw number, do not try to convert this to little endian.
- */
-extern bool cusbd_string_has_langid(const struct cusbd_string *me, uint16_t wLANGID);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_string_ctor().
- * @brief Returns the number of characters stored in the string
- * descriptor. I.e. number of elements in @ref cusbd_string_descriptor.bString
- * array.
+ * @warning Value returned in native endianness, NOT little endian.
  * 
  * @param me String descriptor to check.
  */
-extern size_t cusbd_string_character_count(const struct cusbd_string *me);
-
-/**
- * @pre @p me previously constructed via @ref cusbd_string_zero_ctor().
- * @brief Copies string descriptor's data into @p buf such that @p buf
- * can be directly placed in an endpoint buffer without additional 
- * formatting. Data is continuous and all multibyte values are copied 
- * in little endian.
- * 
- * @param me String descriptor to send.
- * @param buf String descriptor is copied into this buffer. 
- * @param len Number of bytes available in @p buf. This must be
- * greater than or equal to the number of bytes of the string
- * descriptor. I.e. >= @ref cusbd_string_descriptor.bLength.
- */
-extern void cusbd_string_send(const struct cusbd_string *me, void *buf, size_t len);
+extern uint16_t cusbd_string_w_lang_id(const struct cusbd_string *me);
 /**@}*/
 
 #ifdef __cplusplus

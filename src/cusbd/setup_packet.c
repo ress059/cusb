@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief See @ref src/cusbd/request.h.
+ * @brief See @ref setup_packet.h.
  * 
  * @author Ian Ress
  * @version 0.1
@@ -13,7 +13,7 @@
 /*------------------------------------------------------------*/
 
 /* Translation unit. */
-#include "cusbd/request.h"
+#include "cusbd/setup_packet.h"
 
 /* ECU. */
 #include "ecu/asserter.h"
@@ -23,7 +23,7 @@
 /*--------------- DEFINE FILE NAME FOR ASSERTER --------------*/
 /*------------------------------------------------------------*/
 
-ECU_ASSERT_DEFINE_NAME("cusbd/request.c.")
+ECU_ASSERT_DEFINE_FILE("cusbd/request.c.")
 
 /*------------------------------------------------------------*/
 /*--------------------- DEFINES - BITMASKS -------------------*/
@@ -47,56 +47,56 @@ ECU_ASSERT_DEFINE_NAME("cusbd/request.c.")
 #define BMREQUESTTYPE_RECIPIENT_OTHER (3U)
 
 /*------------------------------------------------------------*/
-/*--------------- CUSBD REQUEST MEMBER FUNCTIONS -------------*/
+/*------------ CUSBD_SETUP_PACKET MEMBER FUNCTIONS -----------*/
 /*------------------------------------------------------------*/
 
-enum cusbd_request_direction cusbd_request_direction(const struct cusbd_request *me)
+enum cusbd_setup_packet_direction cusbd_setup_packet_direction(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
-    enum cusbd_request_direction direction = CUSBD_REQUEST_DIRECTION_IN;
+    ECU_ASSERT( (me) );
+    enum cusbd_setup_packet_direction direction = CUSBD_SETUP_PACKET_DIRECTION_IN;
     bool in = (me->bmRequestType & BMREQUESTTYPE_DIRECTION_BITMASK); /* bmRequestType.direction. */
 
     if (in) 
     {
-        direction = CUSBD_REQUEST_DIRECTION_IN;
+        direction = CUSBD_SETUP_PACKET_DIRECTION_IN;
     }
     else
     {
-        direction = CUSBD_REQUEST_DIRECTION_OUT;
+        direction = CUSBD_SETUP_PACKET_DIRECTION_OUT;
     }
 
     return direction;
 }
 
-enum cusbd_request_recipient cusbd_request_recipient(const struct cusbd_request *me)
+enum cusbd_setup_packet_recipient cusbd_setup_packet_recipient(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
-    enum cusbd_request_recipient recipient = CUSBD_REQUEST_RECIPIENT_RESERVED;
+    ECU_ASSERT( (me) );
+    enum cusbd_setup_packet_recipient recipient = CUSBD_SETUP_PACKET_RECIPIENT_RESERVED;
     uint8_t data = me->bmRequestType & BMREQUESTTYPE_RECIPIENT_BITMASK; /* bmRequestType.recipient. */
     
     switch (data) 
     {
         case BMREQUESTTYPE_RECIPIENT_DEVICE:
         {
-            recipient = CUSBD_REQUEST_RECIPIENT_DEVICE;
+            recipient = CUSBD_SETUP_PACKET_RECIPIENT_DEVICE;
             break;
         }
 
         case BMREQUESTTYPE_RECIPIENT_INTERFACE:
         {
-            recipient = CUSBD_REQUEST_RECIPIENT_INTERFACE;
+            recipient = CUSBD_SETUP_PACKET_RECIPIENT_INTERFACE;
             break;
         }
 
         case BMREQUESTTYPE_RECIPIENT_ENDPOINT:
         {
-            recipient = CUSBD_REQUEST_RECIPIENT_ENDPOINT;
+            recipient = CUSBD_SETUP_PACKET_RECIPIENT_ENDPOINT;
             break;
         }
 
         case BMREQUESTTYPE_RECIPIENT_OTHER:
         {
-            recipient = CUSBD_REQUEST_RECIPIENT_OTHER;
+            recipient = CUSBD_SETUP_PACKET_RECIPIENT_OTHER;
             break;
         }
 
@@ -110,42 +110,42 @@ enum cusbd_request_recipient cusbd_request_recipient(const struct cusbd_request 
     return recipient;
 }
 
-enum cusbd_request_type cusbd_request_type(const struct cusbd_request *me)
+enum cusbd_setup_packet_type cusbd_setup_packet_type(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
-    enum cusbd_request_type type = CUSBD_REQUEST_TYPE_RESERVED;
+    ECU_ASSERT( (me) );
+    enum cusbd_setup_packet_type type = CUSBD_SETUP_PACKET_TYPE_RESERVED;
     uint8_t data = me->bmRequestType & BMREQUESTTYPE_TYPE_BITMASK; /* bmRequestType.type. */
 
     switch (data)
     {
         case BMREQUESTTYPE_TYPE_STANDARD:
         {
-            type = CUSBD_REQUEST_TYPE_STANDARD;
+            type = CUSBD_SETUP_PACKET_TYPE_STANDARD;
             break;
         }
 
         case BMREQUESTTYPE_TYPE_CLASS:
         {
-            type = CUSBD_REQUEST_TYPE_CLASS;
+            type = CUSBD_SETUP_PACKET_TYPE_CLASS;
             break;
         }
 
         case BMREQUESTTYPE_TYPE_VENDOR:
         {
-            type = CUSBD_REQUEST_TYPE_VENDOR;
+            type = CUSBD_SETUP_PACKET_TYPE_VENDOR;
             break;
         }
 
         case BMREQUESTTYPE_TYPE_RESERVED:
         {
-            type = CUSBD_REQUEST_TYPE_RESERVED;
+            type = CUSBD_SETUP_PACKET_TYPE_RESERVED;
             break;
         }
 
         default:
         {
             /* No other values should be possible since limited to 0b11. */
-            ECU_RUNTIME_ASSERT( (false) );
+            ECU_ASSERT( (false) );
             break;
         }
     }
@@ -153,29 +153,29 @@ enum cusbd_request_type cusbd_request_type(const struct cusbd_request *me)
     return type;
 }
 
-uint8_t cusbd_request_brequest(const struct cusbd_request *me)
+uint8_t cusbd_setup_packet_b_request(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
+    ECU_ASSERT( (me) );
     return me->bRequest;
 }
 
-uint16_t cusbd_request_windex(const struct cusbd_request *me)
+uint16_t cusbd_setup_packet_w_index(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
+    ECU_ASSERT( (me) );
     uint16_t wIndex = ECU_LE16_TO_CPU_RUNTIME(me->wIndex);
     return wIndex;
 }
 
-uint16_t cusbd_request_wlength(const struct cusbd_request *me)
+uint16_t cusbd_setup_packet_w_length(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
+    ECU_ASSERT( (me) );
     uint16_t wLength = ECU_LE16_TO_CPU_RUNTIME(me->wLength);
     return wLength;
 }
 
-uint16_t cusbd_request_wvalue(const struct cusbd_request *me)
+uint16_t cusbd_setup_packet_w_value(const struct cusbd_setup_packet *me)
 {
-    ECU_RUNTIME_ASSERT( (me) );
+    ECU_ASSERT( (me) );
     uint16_t wValue = ECU_LE16_TO_CPU_RUNTIME(me->wValue);
     return wValue;
 }

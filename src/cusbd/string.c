@@ -20,137 +20,59 @@
 
 /* ECU. */
 #include "ecu/asserter.h"
+#include "ecu/endian.h"
 
 /*------------------------------------------------------------*/
 /*--------------- DEFINE FILE NAME FOR ASSERTER --------------*/
 /*------------------------------------------------------------*/
 
-ECU_ASSERT_DEFINE_NAME("cusbd/string.c")
+ECU_ASSERT_DEFINE_FILE("cusbd/string.c")
 
 /*------------------------------------------------------------*/
 /*--------------------------- DEFINES ------------------------*/
 /*------------------------------------------------------------*/
 
-/**
- * @brief Returns size of @ref cusbd_string_descriptor_zero.bLength.
- */
-#define STRING_ZERO_BLENGTH_SIZE \
-    (ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bLength))
-
-/**
- * @brief Returns size of @ref cusbd_string_descriptor_zero.bDescriptorType.
- */
-#define STRING_ZERO_BDESCRIPTOR_TYPE_SIZE \
-    (ECU_FIELD_SIZEOF(struct cusbd_string_descriptor_zero, bDescriptorType))
-
-/**
- * @brief Returns size of @ref cusbd_string_descriptor.bLength.
- */
-#define STRING_BLENGTH_SIZE \
-    (ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bLength))
-
-/**
- * @brief Returns size of @ref cusbd_string_descriptor.bDescriptorType.
- */
-#define STRING_BDESCRIPTOR_TYPE_SIZE \
-    (ECU_FIELD_SIZEOF(struct cusbd_string_descriptor, bDescriptorType))
-
-/*------------------------------------------------------------*/
-/*---------------- STATIC FUNCTION DECLARATIONS --------------*/
-/*------------------------------------------------------------*/
-
-/**
- * @brief Returns true if supplied descriptor was properly
- * constructed via @ref CUSBD_STRING_DESRIPTOR_ZERO_CTOR().
- * False otherwise.
- * 
- * @param descriptor Descriptor to check.
- */
-static bool string_descriptor_zero_valid(const struct cusbd_string_descriptor_zero *descriptor);
-
-/**
- * @brief Returns true if supplied descriptor was properly
- * constructed via @ref CUSBD_STRING_DESRIPTOR_CTOR().
- * False otherwise.
- * 
- * @param descriptor Descriptor to check.
- */
-static bool string_descriptor_valid(const struct cusbd_string_descriptor *descriptor);
-
-/*------------------------------------------------------------*/
-/*---------------- STATIC FUNCTION DEFINITIONS ---------------*/
-/*------------------------------------------------------------*/
-
-static bool string_descriptor_zero_valid(const struct cusbd_string_descriptor_zero *descriptor)
-{
-    bool status = false;
-    ECU_RUNTIME_ASSERT( (descriptor) );
-    size_t array_size = descriptor->bLength - STRING_ZERO_BLENGTH_SIZE - STRING_ZERO_BDESCRIPTOR_TYPE_SIZE;
-
-    if ((descriptor->wLANGID) &&
-        /* There must be at least one language ID code stored. */
-        (array_size >= sizeof(descriptor->wLANGID[0])) &&
-        /* Must have whole number of language ID codes... I.e. can't be length of 2.5 codes. */
-        ((array_size % sizeof(descriptor->wLANGID[0])) == (size_t)0) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_STRING))
-    {
-        status = true;
-    }
-
-    return status;
-}
-
-static bool string_descriptor_valid(const struct cusbd_string_descriptor *descriptor)
-{
-    bool status = false;
-    ECU_RUNTIME_ASSERT( (descriptor) );
-
-    /* Subtract the NULL character from array size calculation. */
-    size_t array_size = descriptor->bLength - STRING_BLENGTH_SIZE - STRING_BDESCRIPTOR_TYPE_SIZE - sizeof(cusbd_utf16_t);
-
-    if ((descriptor->bString) &&
-        /* There must be at least one character stored. */
-        (array_size >= sizeof(descriptor->bString[0])) &&
-        /* String must have whole number of characters... I.e. can't be length of 2.5 characters. */
-        ((array_size % sizeof(descriptor->bString[0])) == (size_t)0) &&
-        (descriptor->bDescriptorType == (uint8_t)CUSBD_DESCRIPTOR_TYPE_STRING))
-    {
-        status = true;
-    }
-    
-    return status;
-}
+/// @brief bDescriptorType value of string descriptors.
+#define BDESCRIPTORTYPE_STRING \
+    ((uint8_t)0x03)
 
 /*------------------------------------------------------------*/
 /*------------ CUSBD STRING ZERO MEMBER FUNCTIONS ------------*/
 /*------------------------------------------------------------*/
 
 void cusbd_string_zero_ctor(struct cusbd_string_zero *me,
-                            const struct cusbd_string_descriptor_zero *descriptor)
+                            const uint16_t *wLANGIDs,
+                            uint8_t wLANGIDs_size)
 {
-    ECU_RUNTIME_ASSERT( (me && descriptor) );
-    ECU_RUNTIME_ASSERT( (string_descriptor_zero_valid(descriptor)) );
-    me->descriptor = descriptor;
+    ECU_ASSERT( (me && wLANGIDs) );
+    ECU_ASSERT( (wLANGIDs_size >= sizeof(*wLANGIDs)) ); /* Must contain at least one language ID code. */
+    ECU_ASSERT( ((wLANGIDs_size % sizeof(*wLANGIDs)) == 0) ); /* Must be multiple of sizeof(langID code). */
+    size_t descriptor_size = wLANGIDs_size + sizeof(me->bLength) + sizeof(me->bDescriptorType);
+    ECU_ASSERT( (descriptor_size <= UINT8_MAX) ); /* Cannot exceed max value bLength can hold. */
+
+    me->bLength = (uint8_t)descriptor_size;
+    me->bDescriptorType = BDESCRIPTORTYPE_STRING;
+    me->wLANGIDs = wLANGIDs;
+    me->wLANGIDs_count = (wLANGIDs_size / sizeof(*wLANGIDs));
 }
 
-bool cusbd_string_zero_valid(const struct cusbd_string_zero *me)
+size_t cusbd_string_zero_langid_count(const struct cusbd_string_zero *me)
 {
-    /* This is a wrapper function in case logic specific to the 
-    cusbd_string_zero object has to be added in the future. */
-    ECU_RUNTIME_ASSERT( (me) );
-    return string_descriptor_zero_valid(me->descriptor);
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (string_zero_valid(me)) );
+    return (me->wLANGIDs_count);
 }
 
-bool cusbd_string_zero_has_langid(const struct cusbd_string_zero *me,
-                                 uint16_t wLANGID)
+bool cusbd_string_zero_langid_supported(const struct cusbd_string_zero *me,
+                                        uint16_t wLANGID)
 {
-    ECU_RUNTIME_ASSERT( (me) );
-    ECU_RUNTIME_ASSERT( (cusbd_string_zero_valid(me)) );
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_zero_valid(me)) );
     bool status = false;
 
-    for (size_t i = 0; i < cusbd_string_zero_langid_count(me); i++)
+    for (size_t i = 0; i < me->wLANGIDs_count; i++)
     {
-        if (me->descriptor->wLANGID[i] == wLANGID)
+        if (me->wLANGIDs[i] == wLANGID)
         {
             status = true;
             break;
@@ -160,39 +82,57 @@ bool cusbd_string_zero_has_langid(const struct cusbd_string_zero *me,
     return status;
 }
 
-size_t cusbd_string_zero_langid_count(const struct cusbd_string_zero *me)
+size_t cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buffer, size_t len)
 {
-    ECU_RUNTIME_ASSERT( (me) );
-    ECU_RUNTIME_ASSERT( (me->descriptor) );
-    ECU_RUNTIME_ASSERT( (me->descriptor->wLANGID) );
-    size_t array_size = me->descriptor->bLength - STRING_ZERO_BLENGTH_SIZE - STRING_ZERO_BDESCRIPTOR_TYPE_SIZE;
+    ECU_ASSERT( (me && buffer) );
+    ECU_ASSERT( (cusbd_string_zero_valid(me)) );
+    size_t num_bytes_sent = 0;
 
-    /* Must have whole number of language ID codes... I.e. can't be length of 2.5 codes. */
-    ECU_RUNTIME_ASSERT( ((array_size % sizeof(me->descriptor->wLANGID[0])) == (size_t)0) );
-    return (array_size / sizeof(me->descriptor->wLANGID[0]));
+    if (me->bLength <= len) 
+    {
+        /* Buffer large enough to contain descriptor. */
+        uint8_t *head = buffer;
+        uint16_t lang_id = 0;
+        ECU_STATIC_ASSERT( (sizeof(lang_id) == sizeof(*me->wLANGIDs)), "Sizes must be equal." );
+
+        /* Copy bLength and bDescriptorType. */
+        head[0] = me->bLength;
+        head[1] = me->bDescriptorType;
+        num_bytes_sent = sizeof(me->bLength) + sizeof(me->bDescriptorType);
+        head += (sizeof(me->bLength) + sizeof(me->bDescriptorType));
+
+        /* Copy lang ID codes in little endian. */
+        for (size_t i = 0; i < me->wLANGIDs_count; i++)
+        {
+            lang_id = ECU_CPU_TO_LE16_RUNTIME(me->wLANGIDs[i]);
+            memcpy(head, &lang_id, sizeof(lang_id));
+            num_bytes_sent += sizeof(lang_id);
+            head += sizeof(lang_id);
+        }
+    }
+    else
+    {
+        /* Buffer too small to contain descriptor. */
+        num_bytes_sent = 0;
+    }
+
+    return num_bytes_sent;
 }
 
-void cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buf, size_t len)
+bool cusbd_string_zero_valid(const struct cusbd_string_zero *me)
 {
-    ECU_RUNTIME_ASSERT( (me && buf) );
-    ECU_RUNTIME_ASSERT( (cusbd_string_zero_valid(me)) );
-    ECU_RUNTIME_ASSERT( (len >= me->descriptor->bLength) );
-    uint8_t *curr = (uint8_t *)buf;
-    uint16_t id = 0;
+    ECU_ASSERT( (me) );
+    bool status = false;
 
-    /* We can have pointers to members since struct cusbd_string_descriptor_zero is not packed. */
-    memcpy(curr, &me->descriptor->bLength, STRING_ZERO_BLENGTH_SIZE);
-    curr += STRING_ZERO_BLENGTH_SIZE;
-    memcpy(curr, &me->descriptor->bDescriptorType, STRING_ZERO_BDESCRIPTOR_TYPE_SIZE);
-    curr += STRING_ZERO_BDESCRIPTOR_TYPE_SIZE;
-
-    /* Copy lang ID codes in little endian. */
-    for (size_t i = 0; i < cusbd_string_zero_langid_count(me); i++)
+    if ((me->bLength == me->wLANGIDs_count + sizeof(me->bLength) + sizeof(me->bDescriptorType)) &&
+        (me->bDescriptorType == BDESCRIPTORTYPE_STRING) &&
+        (me->wLANGIDs) &&
+        (me->wLANGIDs_count > 0))
     {
-        id = ECU_CPU_TO_LE16_RUNTIME(me->descriptor->wLANGID[i]);
-        memcpy(curr, &id, sizeof(me->descriptor->wLANGID[0]));
-        curr += sizeof(me->descriptor->wLANGID[0]);
+        status = true;
     }
+
+    return status;
 }
 
 /*------------------------------------------------------------*/
@@ -200,63 +140,124 @@ void cusbd_string_zero_send(const struct cusbd_string_zero *me, void *buf, size_
 /*------------------------------------------------------------*/
 
 void cusbd_string_ctor(struct cusbd_string *me,
-                       const struct cusbd_string_descriptor *descriptor,
+                       const char16_t *bString,
                        uint16_t wLANGID)
 {
-    ECU_RUNTIME_ASSERT( (me && descriptor) );
-    ECU_RUNTIME_ASSERT( (string_descriptor_valid(descriptor)) );
-    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, CUSBD_DESCRIPTOR_TYPE_STRING);
-    me->descriptor = descriptor;
+    /* String length is restricted by the max value bLength can hold:
+    1. bLength_max_value = 255
+    2. bString_max_size = bLength_max_value - (bLength_max_value % sizeof(char16_t)) = 252 // highest multiple of sizeof(char16_t)
+    3. MAX_CHARACTER_COUNT = bString_max_size / sizeof(char16_t).
+    */
+    static const size_t MAX_CHARACTER_COUNT = 126;
+    ECU_ASSERT( (me && bString) );
+    size_t character_count = 0;
+
+    for (size_t i = 0; i < MAX_CHARACTER_COUNT; i++)
+    {
+        if (bString[i])
+        {
+            character_count++;
+        }
+        else
+        {
+            /* NULL terminator reached. */
+            break;
+        }
+    }
+
+    ecu_dnode_ctor(&me->dnode, ECU_DNODE_DESTROY_UNUSED, ECU_OBJECT_ID_UNUSED);
+    me->bLength = (character_count * sizeof(*me->bString)) + sizeof(me->bLength) + sizeof(me->bDescriptorType);
+    me->bDescriptorType = BDESCRIPTORTYPE_STRING;
+    me->bString = bString;
+    me->index = 0;
+    me->length = character_count;
     me->wLANGID = wLANGID;
+}
+
+uint8_t cusbd_string_b_length(const struct cusbd_string *me)
+{
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_valid(me)) );
+    return (me->bLength);
+}
+
+struct ecu_dnode *cusbd_string_dnode(struct cusbd_string *me)
+{
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_valid(me)) );
+    return (&me->dnode);
+}
+
+const struct ecu_dnode *cusbd_string_cdnode(const struct cusbd_string *me)
+{
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_valid(me)) );
+    return (&me->dnode);
+}
+
+size_t cusbd_string_length(const struct cusbd_string *me)
+{
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_valid(me)) );
+    return (me->length);
+}
+
+size_t cusbd_string_send(const struct cusbd_string *me, void *buffer, size_t len)
+{
+    ECU_ASSERT( (me && buffer) );
+    ECU_ASSERT( (cusbd_string_zero_valid(me)) );
+    size_t num_bytes_sent = 0;
+
+    if (me->bLength <= len) 
+    {
+        /* Buffer large enough to contain descriptor. */
+        uint8_t *head = buffer;
+        uint16_t character = 0;
+        ECU_STATIC_ASSERT( (sizeof(character) == sizeof(*me->bString)), "Sizes must be equal." );
+
+        /* Copy bLength and bDescriptorType. */
+        head[0] = me->bLength;
+        head[1] = me->bDescriptorType;
+        num_bytes_sent = sizeof(me->bLength) + sizeof(me->bDescriptorType);
+        head += (sizeof(me->bLength) + sizeof(me->bDescriptorType));
+
+        /* Copy string in little endian. */
+        for (size_t i = 0; i < me->length; i++)
+        {
+            character = ECU_CPU_TO_LE16_RUNTIME((uint16_t)me->bString[i]);
+            memcpy(head, &character, sizeof(character));
+            num_bytes_sent += sizeof(character);
+            head += sizeof(character);
+        }
+    }
+    else
+    {
+        /* Buffer too small to contain descriptor. */
+        num_bytes_sent = 0;
+    }
+
+    return num_bytes_sent;
 }
 
 bool cusbd_string_valid(const struct cusbd_string *me)
 {
-    /* This is a wrapper function in case logic specific to the 
-    cusbd_string object has to be added in the future. */
-    ECU_RUNTIME_ASSERT( (me) );
-    return string_descriptor_valid(me->descriptor);
-}
+    ECU_ASSERT( (me) );
+    bool status = false;
 
-bool cusbd_string_has_langid(const struct cusbd_string *me, uint16_t wLANGID)
-{
-    ECU_RUNTIME_ASSERT( (me) );
-    return (me->wLANGID == wLANGID);
-}
-
-size_t cusbd_string_character_count(const struct cusbd_string *me)
-{
-    ECU_RUNTIME_ASSERT( (me) );
-    ECU_RUNTIME_ASSERT( (me->descriptor) );
-    ECU_RUNTIME_ASSERT( (me->descriptor->bString) );
-    size_t array_size = me->descriptor->bLength - STRING_BLENGTH_SIZE - STRING_BDESCRIPTOR_TYPE_SIZE;
-
-    /* Must have whole number of characters... I.e. can't be length of 2.5 characters. */
-    ECU_RUNTIME_ASSERT( ((array_size % sizeof(me->descriptor->bString[0])) == (size_t)0) );
-    return (array_size / sizeof(me->descriptor->bString[0]));
-}
-
-void cusbd_string_send(const struct cusbd_string *me, void *buf, size_t len)
-{
-    ECU_STATIC_ASSERT( (sizeof(cusbd_utf16_t) == sizeof(uint16_t)),
-                        "Sizes of two types must be equal since casts between these two types are performed." );
-    ECU_RUNTIME_ASSERT( (me && buf) );
-    ECU_RUNTIME_ASSERT( (cusbd_string_valid(me)) );
-    ECU_RUNTIME_ASSERT( (len >= me->descriptor->bLength) );
-    uint8_t *curr = (uint8_t *)buf;
-    uint16_t c = 0;
-
-    /* We can have pointers to members since struct cusbd_string_descriptor is not packed. */
-    memcpy(curr, &me->descriptor->bLength, STRING_BLENGTH_SIZE);
-    curr += STRING_BLENGTH_SIZE;
-    memcpy(curr, &me->descriptor->bDescriptorType, STRING_BDESCRIPTOR_TYPE_SIZE);
-    curr += STRING_BDESCRIPTOR_TYPE_SIZE;
-
-    /* Copy UTF16 characters in little endian. */
-    for (size_t i = 0; i < cusbd_string_character_count(me); i++)
+    if ((ecu_dnode_valid(&me->dnode)) && 
+        (me->bLength == (uint8_t)(me->length + sizeof(me->bLength) + sizeof(me->bDescriptorType))) &&
+        (me->bDescriptorType == BDESCRIPTORTYPE_STRING) && 
+        (me->bString))
     {
-        c = ECU_CPU_TO_LE16_RUNTIME((uint16_t)me->descriptor->bString[i]);
-        memcpy(curr, &c, sizeof(me->descriptor->bString[0]));
-        curr += sizeof(me->descriptor->bString[0]);
+        status = true;
     }
+
+    return status;
+}
+
+uint16_t cusbd_string_w_lang_id(const struct cusbd_string *me)
+{
+    ECU_ASSERT( (me) );
+    ECU_ASSERT( (cusbd_string_valid(me)) );
+    return (me->wLANGID);
 }

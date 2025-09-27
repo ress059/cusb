@@ -20,93 +20,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* CUSB. */
+#include "cusbd/descriptor.h"
+#include "cusbd/endpoint.h"
+#include "cusbd/string.h"
+
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
 #include "ecu/ntnode.h"
 
 /*------------------------------------------------------------*/
-/*---------------------- DEFINES AND MACROS ------------------*/
-/*------------------------------------------------------------*/
-
-/**
- * @brief Value of bDescriptorType in a standard
- * interface descriptor.
- */
-#define CUSBD_INTERFACE_BDESCRIPTORTYPE \
-    ((uint8_t)0x04)
-
-// /**
-//  * @brief Creates a @ref cusbd_interface_descriptor at
-//  * either compile-time or run-time, which should be
-//  * used to create a @ref cusbd_interface. Example usage:
-//  * @code{.c}
-//  * static const struct cusbd_interface_descriptor interface = CUSBD_INTERFACE_DESCRIPTOR_CTOR(
-//  *      0, 0, 0
-//  * );
-//  * @endcode
-//  * 
-//  * @param bInterfaceClass_ This interface's class code. See USB spec.
-//  * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
-//  * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
-//  */
-// #define CUSBD_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,       \
-//                                         bInterfaceSubClass_,    \
-//                                         bInterfaceProtocol_)    \
-//     {                                                           \
-//         .bLength = sizeof(struct cusbd_interface_descriptor),   \
-//         .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,     \
-//         .bInterfaceNumber = 0,                                  \
-//         .bAlternateSetting = 0,                                 \
-//         .bNumEndpoints = 0,                                     \
-//         .bInterfaceClass = (bInterfaceClass_),                  \
-//         .bInterfaceSubClass = (bInterfaceSubClass_),            \
-//         .bInterfaceProtocol = (bInterfaceProtocol_),            \
-//         .iInterface = 0                                         \
-//     }
-
-// /**
-//  * @brief Creates a @ref cusbd_interface_descriptor at
-//  * either compile-time or run-time, which should be
-//  * used to create a @ref cusbd_alternate_interface. 
-//  * Example usage:
-//  * @code{.c}
-//  * static const struct cusbd_interface_descriptor interface = CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(
-//  *      0, 0, 0
-//  * );
-//  * @endcode
-//  * 
-//  * @param bInterfaceClass_ This interface's class code. See USB spec.
-//  * @param bInterfaceSubClass_ This interface's subclass code. See USB spec.
-//  * @param bInterfaceProtocol_ This interface's protocol code. See USB spec.
-//  */
-// #define CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR(bInterfaceClass_,         \
-//                                                   bInterfaceSubClass_,      \
-//                                                   bInterfaceProtocol_)      \
-//     {                                                                       \
-//         .bLength = sizeof(struct cusbd_interface_descriptor),               \
-//         .bDescriptorType = CUSBD_INTERFACE_BDESCRIPTORTYPE,                 \
-//         .bInterfaceNumber = 0,                                              \
-//         .bAlternateSetting = 1,                                             \
-//         .bNumEndpoints = 0,                                                 \
-//         .bInterfaceClass = (bInterfaceClass_),                              \
-//         .bInterfaceSubClass = (bInterfaceSubClass_),                        \
-//         .bInterfaceProtocol = (bInterfaceProtocol_),                        \
-//         .iInterface = 0                                                     \
-//     }
-
-/*------------------------------------------------------------*/
 /*----------------------- CUSBD INTERFACE --------------------*/
 /*------------------------------------------------------------*/
-
-/* Forward declarations. */
-struct cusbd_endpoint;
-struct cusbd_string;
 
 /**
  * @brief Data in a standard interface descriptor.
  * Alternate interfaces also use this same data.
- * This will always be in little endian format.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
@@ -116,12 +46,12 @@ struct cusbd_interface_descriptor
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
 
-    /// @brief Descriptor type. Always 0x04 == Interface Descriptor.
+    /// @brief Descriptor type. Always 0x04.
     uint8_t bDescriptorType;
 
     /// @brief Unique ID used to identify all interface
     /// descriptors attached to a configuration descriptor.
-    /// Starts at 0.
+    /// Starts at 0. Assigned by user when interface constructed.
     uint8_t bInterfaceNumber;
 
     /// @brief Unique ID used to identify this interface's
@@ -130,24 +60,30 @@ struct cusbd_interface_descriptor
     /// have bInterfaceNumber == 0 and bAlternateSetting == 0.
     /// The second interface (alternate interface) would have 
     /// bInterfaceNumber == 0 and bAlternateSettting == 1.
+    /// Assigned by user when interface constructed.
     uint8_t bAlternateSetting;
 
     /// @brief Number of endpoints attached to this interface.
+    /// Updated by library in add_endpoint() functions.
     /// @warning This never includes endpoint0. I.e. if the 
     /// interface descriptor only uses endpoint0, this is 0.
     uint8_t bNumEndpoints;
 
-    /// @brief This interface's class code. See USB spec. 
+    /// @brief This interface's class code. See USB spec.
+    /// Assigned by user when interface constructed.
     uint8_t bInterfaceClass;
 
-    /// @brief This interface's subclass code. See USB spec. 
+    /// @brief This interface's subclass code. See USB spec.
+    /// Assigned by user when interface constructed.
     uint8_t bInterfaceSubClass;
 
     /// @brief This interface's protocol code. See USB spec. 
+    /// Assigned by user when interface constructed.
     uint8_t bInterfaceProtocol;
 
     /// @brief Index of string descriptor describing this interface.
-    /// Strings are optional. Equals 0 if unused.
+    /// Strings are optional. Equals 0 if unused. Assigned by library
+    /// when USB device starts up.
     uint8_t iInterface;
 } ECU_ATTRIBUTE_PACKED;
 
@@ -159,8 +95,9 @@ struct cusbd_interface_descriptor
  */
 struct cusbd_interface
 {
-    /// @brief All descriptors represented as nodes in a tree.
-    struct ecu_ntnode ntnode;
+    /// @brief Inherit base descriptor class
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.
@@ -169,30 +106,30 @@ struct cusbd_interface
     struct cusbd_interface_descriptor descriptor;
 
     /// @brief Currently active alternate interface (bAlternateSetting).
-    /// 0 if no alternate setting selected.
-    uint8_t alternate_setting;
+    /// NULL if no alternate interface is active.
+    struct cusbd_alt_interface *alt_interface;
 
     /// @brief String descriptors attached to this interface descriptor. 
     /// Optional. Empty if unused.
-    /// @warning If used, the device must have a string descriptor zero. 
-    /// I.e. @ref cusbd.string0 must be populated.
+    /// @warning If used, the device must use a string descriptor zero. 
     struct ecu_dlist strings;
 };
 
 /**
  * @brief Object representing a USB alternate interface descriptor.
  * Interface and alternate inteface descriptor data is the 
- * exactly the same, but CUSB represents these as two
+ * exactly the same, but this library represents these as two
  * separate objects for better organization since an 
  * alternate interface cannot have other alternate interfaces.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
-struct cusbd_alternate_interface
+struct cusbd_alt_interface
 {
-    /// @brief All descriptors represented as nodes in a tree.
-    struct ecu_ntnode ntnode;
+    /// @brief Inherit base descriptor class
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.
@@ -200,10 +137,9 @@ struct cusbd_alternate_interface
     /// little endian.
     struct cusbd_interface_descriptor descriptor;
 
-    /// @brief String descriptors attached to this alternate interface 
-    /// descriptor. Optional. Empty if unused.
-    /// @warning If used, the device must have a string descriptor zero. 
-    /// I.e. @ref cusbd.string0 must be populated.
+    /// @brief String descriptors attached to this interface descriptor. 
+    /// Optional. Empty if unused.
+    /// @warning If used, the device must use a string descriptor zero. 
     struct ecu_dlist strings;
 };
 
@@ -227,18 +163,23 @@ extern "C" {
  * descriptor. Doing so is undefined behavior.
  * 
  * @param me Interface descriptor to construct.
- * @param bInterfaceClass The interface's class code.
- * See https://www.usb.org/defined-class-codes.
- * @param bInterfaceSubclass The interface's subclass code.
+ * @param bInterfaceNumber bInterfaceNumber field in interface
+ * descriptor. This starts at 0. It is the user's responsibility to 
+ * set this to a valid value - it will not be checked by the library. 
+ * See USB spec. 
+ * @param bInterfaceClass bInterfaceClass field in the interface
+ * descriptor. See USB spec and https://www.usb.org/defined-class-codes.
+ * @param bInterfaceSubClass bInterfaceSubClass field in the interface
  * It's value depends on the class specified in @p bInterfaceClass.
- * See USB class's specification for list of acceptable values.
- * @param bInterfaceProtocol The interface's protocol code.
+ * See USB spec and class's specification for list of acceptable values.
+ * @param bInterfaceProtocol bInterfaceProtocol field in the interface
  * It's value depends on the class specified in @p bInterfaceClass.
- * See USB class's specification for list of acceptable values.
+ * See USB spec and class's specification for list of acceptable values.
  */
 extern void cusbd_interface_ctor(struct cusbd_interface *me, 
+                                 uint8_t bInterfaceNumber,
                                  uint8_t bInterfaceClass,
-                                 uint8_t bInterfaceSubclass,
+                                 uint8_t bInterfaceSubClass,
                                  uint8_t bInterfaceProtocol);
 /**@}*/
 
@@ -248,7 +189,7 @@ extern void cusbd_interface_ctor(struct cusbd_interface *me,
 /**@{*/
 /**
  * @pre @p me constructed via @ref cusbd_interface_ctor().
- * @pre @p alternate_interface previously constructed via @ref cusbd_interface_ctor().
+ * @pre @p alt_interface previously constructed via @ref cusbd_alt_interface_ctor().
  * @brief Adds an alternate interface descriptor to the supplied interface 
  * descriptor.
  * 
@@ -256,11 +197,11 @@ extern void cusbd_interface_ctor(struct cusbd_interface *me,
  * is called. Otherwise behavior is undefined.
  * 
  * @param me Interface descriptor to add to.
- * @param descriptor Alternate interface descriptor to add. 
+ * @param alt_interface Alternate interface descriptor to add. 
  * This cannot already be within another interface descriptor.
  */
-extern void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
-                                                    struct cusbd_alternate_interface *alternate_interface);
+extern void cusbd_interface_add_alt_interface(struct cusbd_interface *me,
+                                              struct cusbd_alt_interface *alt_interface);
 
 /**
  * @pre @p me previously constructed via @ref cusbd_interface_ctor().
@@ -272,10 +213,11 @@ extern void cusbd_interface_add_alternate_interface(struct cusbd_interface *me,
  * 
  * @param me Interface descriptor to add to.
  * @param endpoint Endpoint descriptor to add. This cannot already be
- * within another interface or alternate interface descriptor.
- * @p endpoint's address (@ref cusbd_endpoint_descriptor.bEndpointAddress)
- * cannot be the same as any endpoint descriptors currently in @p me.
- * I.e. an interface cannot have multiple endpoint1 INs.
+ * within another interface or alternate interface descriptor. The
+ * endpoint's address (bEndpointAddress) cannot be the same as any 
+ * endpoint descriptors currently attached to the supplied
+ * interface descriptor. I.e. the interface descriptor cannot have 
+ * multiple endpoint1 INs. This is the user's responsibility.
  */
 extern void cusbd_interface_add_endpoint(struct cusbd_interface *me,
                                          struct cusbd_endpoint *endpoint);
@@ -289,8 +231,7 @@ extern void cusbd_interface_add_endpoint(struct cusbd_interface *me,
  * @warning This must only be called on setup, before @ref cusbd_start() 
  * is called. Otherwise behavior is undefined.
  * @warning This can only be used if the USB device associated with
- * this descriptor has a string descriptor zero. I.e. a populated 
- * string0 was passed to @ref cusbd_ctor().
+ * this descriptor has a string descriptor zero.
  * 
  * @param me Interface descriptor to add to.
  * @param string String descriptor to add. This cannot already be within
@@ -319,17 +260,30 @@ extern bool cusbd_interface_valid(const struct cusbd_interface *me);
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSBD_ALTERNATE_INTERFACE_DESCRIPTOR_CTOR().
  * @brief Alternate interface descriptor constructor.
  * 
- * @warning This cannot be called on an active alternate interface 
- * descriptor. Doing so is undefined behavior.
+ * @warning This cannot be called on an active alternate
+ * interface descriptor. Doing so is undefined behavior.
  * 
  * @param me Alternate interface descriptor to construct.
- * @param descriptor The alternate interface descriptor's data.
+ * @param bAlternateSetting bAlternateSetting field in the interface
+ * descriptor. This must be greater than 0 since this is an alternate
+ * interface. It is the user's responsibility to set this to a valid 
+ * value - the library only verifies this is not 0. See USB spec. 
+ * @param bInterfaceClass bInterfaceClass field in the interface
+ * descriptor. See USB spec and https://www.usb.org/defined-class-codes.
+ * @param bInterfaceSubClass bInterfaceSubClass field in the interface
+ * It's value depends on the class specified in @p bInterfaceClass.
+ * See USB spec and class's specification for list of acceptable values.
+ * @param bInterfaceProtocol bInterfaceProtocol field in the interface
+ * It's value depends on the class specified in @p bInterfaceClass.
+ * See USB spec and class's specification for list of acceptable values.
  */
-extern void cusbd_alternate_interface_ctor(struct cusbd_alternate_interface *me,
-                                           const struct cusbd_interface_descriptor *descriptor);
+extern void cusbd_alt_interface_ctor(struct cusbd_alt_interface *me, 
+                                     uint8_t bAlternateSetting,
+                                     uint8_t bInterfaceClass,
+                                     uint8_t bInterfaceSubClass,
+                                     uint8_t bInterfaceProtocol);
 /**@}*/
 
 /**
@@ -337,51 +291,51 @@ extern void cusbd_alternate_interface_ctor(struct cusbd_alternate_interface *me,
  */
 /**@{*/
 /**
- * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_alt_interface_ctor().
  * @pre @p endpoint previously constructed via @ref cusbd_endpoint_ctor().
- * @brief Adds an endpoint descriptor to the supplied alternate 
- * interface descriptor.
+ * @brief Adds an endpoint descriptor to the supplied alternate interface 
+ * descriptor.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
  * is called. Otherwise behavior is undefined.
  * 
  * @param me Alternate interface descriptor to add to.
  * @param endpoint Endpoint descriptor to add. This cannot already be
- * within another interface or alternate interface descriptor.
- * @p endpoint's address (@ref cusbd_endpoint_descriptor.bEndpointAddress)
- * cannot be the same as any endpoint descriptors currently in @p me.
- * I.e. an interface cannot have multiple endpoint1 INs.
+ * within another interface or alternate interface descriptor. The
+ * endpoint's address (bEndpointAddress) cannot be the same as any 
+ * endpoint descriptors currently attached to the supplied alternate
+ * interface descriptor. I.e. the alternate interface descriptor cannot 
+ * have multiple endpoint1 INs. This is the user's responsibility.
  */
-extern void cusbd_alternate_interface_add_endpoint(struct cusbd_alternate_interface *me,
-                                                   struct cusbd_endpoint *endpoint);
+extern void cusbd_alt_interface_add_endpoint(struct cusbd_alt_interface *me,
+                                             struct cusbd_endpoint *endpoint);
 
 /**
- * @pre @p me previously constructed via @ref cusbd_alternate_interface_ctor().
+ * @pre @p me previously constructed via @ref cusbd_alt_interface_ctor().
  * @pre @p string previously constructed via @ref cusbd_string_ctor().
- * @brief Adds a string descriptor to the supplied alternate
- * interface descriptor.
+ * @brief Adds a string descriptor to the supplied alternate interface
+ * descriptor.
  * 
  * @warning This must only be called on setup, before @ref cusbd_start() 
  * is called. Otherwise behavior is undefined.
  * @warning This can only be used if the USB device associated with
- * this descriptor has a string descriptor zero. I.e. a populated 
- * string0 was passed to @ref cusbd_ctor().
+ * this descriptor has a string descriptor zero.
  * 
  * @param me Alternate interface descriptor to add to.
  * @param string String descriptor to add. This cannot already be within
  * another descriptor.
  */
-extern void cusbd_alternate_interface_add_string(struct cusbd_alternate_interface *me,
-                                                 struct cusbd_string *string);
+extern void cusbd_alt_interface_add_string(struct cusbd_alt_interface *me,
+                                           struct cusbd_string *string);
 
 /**
  * @brief Returns true if the supplied alternate interface descriptor contains
- * valid data and was properly constructed via @ref cusbd_alternate_interface_ctor(). 
+ * valid data and was properly constructed via @ref cusbd_alt_interface_ctor(). 
  * False otherwise.
  * 
  * @param me Alternate interface descriptor to check.
  */
-extern bool cusbd_alternate_interface_valid(const struct cusbd_alternate_interface *me);
+extern bool cusbd_alt_interface_valid(const struct cusbd_alt_interface *me);
 /**@}*/
 
 #ifdef __cplusplus

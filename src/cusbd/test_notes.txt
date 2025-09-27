@@ -1,0 +1,13 @@
+TEST SET_INTERFACE()
+- SET_INTERFACE() in default state.
+- SET_INTERFACE() in address state.
+- SET_INTERFACE() in configured state. Switching from default interface to alternate interface.
+- SET_INTERFACE() in configured state. Switching from alternate interface to default interface.
+- SET_INTERFACE() in configured state. Switching from alternate interface to another alternate interface.
+- SET_INTERFACE() in configured state. Currently in alternate interface but request is to same interface (nothing should happen just returns true).
+- SET_INTERFACE() in configured state. Currently in default interface but request is to same interface (nothing should happen just returns true).
+
+
+
+TEST GET_DESCRIPTOR(STRING)
+- Create cusbd_string with specified index, start device, dispatch request. Verify received cusbd_string's string == original cusbd_string's string.

@@ -17,67 +17,14 @@
 
 /* STDLib. */
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
+
+/* CUSB. */
+#include "cusbd/descriptor.h"
 
 /* ECU. */
 #include "ecu/attributes.h"
 #include "ecu/dlist.h"
-#include "ecu/ntnode.h"
-
-/*------------------------------------------------------------*/
-/*---------------------- DEFINES AND MACROS ------------------*/
-/*------------------------------------------------------------*/
-
-/**
- * @brief Value of bDescriptorType in a standard
- * configuration descriptor.
- */
-#define CUSBD_CONFIGURATION_BDESCRIPTORTYPE \
-    ((uint8_t)0x02)
-
-/**
- * @brief Helper macro that supplies bMaxPower parameter to
- * @ref CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(). This is the
- * bMaxPower field in the configuration descriptor, which
- * represents max power in 2mA units. For example 50 == 100mA 
- * max power. This macro allows the user to supply a raw number
- * and converts it to the proper format (divides by 2).
- * 
- * @param milliamps_ Max power consumption of USB device in
- * milliAmps. This cannot exceed 500.  
- */
-#define CUSBD_CONFIGURATION_SET_BMAXPOWER(milliamps_) \
-    ((milliamps_) >> 1U)
-
-/**
- * @brief Creates a @ref cusbd_configuration_descriptor at
- * either compile-time or run-time. Example usage:
- * @code{.c}
- * static const struct cusbd_configuration_descriptor config = CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(
- *      0, CUSBD_CONFIGURATION_SET_BMAXPOWER(500)
- * );
- * @endcode
- * 
- * @param bmAttributes_ Bitmap of characteristics. I.e. if device is self-powered,
- * remote wakeup, etc. See USB spec.
- * @param bMaxPower_ Max power consumption of the USB device in 2mA units.
- * I.e. 50 == 100mA max power. Cannot exceed 250. @ref CUSBD_CONFIGURATION_SET_BMAXPOWER() 
- * allows a raw number to be supplied instead. Cannot exceed 500 if this
- * is a raw number.
- */
-#define CUSBD_CONFIGURATION_DESCRIPTOR_CTOR(bmAttributes_,          \
-                                            bMaxPower_)             \
-    {                                                               \
-        .bLength = sizeof(struct cusbd_configuration_descriptor),   \
-        .bDescriptorType = CUSBD_CONFIGURATION_BDESCRIPTORTYPE,     \
-        .wTotalLength = 0,                                          \
-        .bNumInterfaces = 0,                                        \
-        .bConfigurationValue = 0,                                   \
-        .iConfiguration = 0,                                        \
-        .bmAttributes = (bmAttributes_),                            \
-        .bMaxPower = (bMaxPower_)                                   \
-    }
 
 /*------------------------------------------------------------*/
 /*--------------------- CUSBD CONFIGURATION ------------------*/
@@ -89,8 +36,6 @@ struct cusbd_string;
 
 /**
  * @brief Data in a standard configuration descriptor.
- * Using the API ensures this is always encoded in
- * little endian format.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
@@ -100,25 +45,26 @@ struct cusbd_configuration_descriptor
     /// @brief Number of bytes of this descriptor.
     uint8_t bLength;
 
-    /// @brief Descriptor type. Always 0x02 == Configuration Descriptor.
+    /// @brief Descriptor type. Always 0x02.
     uint8_t bDescriptorType;
 
     /// @brief Total length in bytes of entire descriptor's subtree, including
-    /// this configuration descriptor.
+    /// this configuration descriptor. Set when USB device first starts.
     uint16_t wTotalLength;
 
     /// @brief The number of interface descriptors attached to this
     /// configuration. Must always be >= 1 after device is fully setup
     /// since all configuration descriptors must have at least one 
-    /// interface descriptor.
+    /// interface descriptor. Updated when interfaces added to configuration.
     uint8_t bNumInterfaces;
 
     /// @brief Unique ID sent to host to identify this configuration.
-    /// Starts at 1.
+    /// Starts at 1. Assigned when configuration added to USB device.
     uint8_t bConfigurationValue;
 
     /// @brief Index of string descriptor describing this configuration.
-    /// Strings are optional. Equals 0 if unused.
+    /// Strings are optional. Equals 0 if unused. Otherwise assigned
+    /// when USB device first starts.
     uint8_t iConfiguration;
 
     /// @brief Bitmap of characteristics. I.e. if device is self-powered,
@@ -132,17 +78,15 @@ struct cusbd_configuration_descriptor
 
 /**
  * @brief Object representing a USB configuration descriptor.
- * Once the device is fully setup, this must have at least 1
- * interface since all configuration descriptors must have at
- * least one interface descriptor.
  * 
  * @warning PRIVATE. Unless otherwise specified, all
  * members can only be edited via the public API.
  */
 struct cusbd_configuration
 {
-    /// @brief All descriptors represented as nodes in a tree.
-    struct ecu_ntnode ntnode;
+    /// @brief Inherit base descriptor class
+    /// @warning MUST be first member.
+    struct cusbd_descriptor base;
 
     /// @brief Descriptor data. A copy is stored so the API can
     /// automatically adjust it as the device is updated.
@@ -171,17 +115,20 @@ extern "C" {
 /**@{*/
 /**
  * @pre Memory already allocated for @p me.
- * @pre @p descriptor previously constructed via @ref CUSBD_CONFIGURATION_DESCRIPTOR_CTOR().
  * @brief Configuration descriptor constructor.
  * 
  * @warning This cannot be called on an active configuration 
  * descriptor. Doing so is undefined behavior.
  * 
  * @param me Configuration descriptor to construct.
- * @param descriptor The configuration descriptor's data.
+ * @param bmAttributes bmAttributes field of configuration descriptor.
+ * See USB spec.
+ * @param bMaxPower bMaxPower field of configuration descriptor.
+ * See USB spec.
  */
 extern void cusbd_configuration_ctor(struct cusbd_configuration *me,
-                                     const struct cusbd_configuration_descriptor *descriptor);
+                                     uint8_t bmAttributes,
+                                     uint8_t bMaxPower);
 /**@}*/
 
 /**
@@ -213,8 +160,7 @@ extern void cusbd_configuration_add_interface(struct cusbd_configuration *me,
  * @warning This must only be called on setup, before @ref cusbd_start() 
  * is called. Otherwise behavior is undefined.
  * @warning This can only be used if the USB device associated with
- * this descriptor has a string descriptor zero. I.e. a populated 
- * string0 was passed to @ref cusbd_ctor().
+ * this descriptor uses a string descriptor zero.
  * 
  * @param me Configuration descriptor to add to.
  * @param string String descriptor to add. This cannot already be within
